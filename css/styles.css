@@ -1,0 +1,472 @@
+/* =====================================================
+   RockSongs Frontend — styles.css
+   Plain CSS, no framework.
+   ===================================================== */
+
+/* ---------- Reset / Base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  background: #f4f5f7;
+  color: #222;
+  min-height: 100vh;
+}
+
+/* ---------- Site Header / Banner ---------- */
+.site-header {
+  background: #1a1a2e;
+  color: #e8e8ff;
+  padding: 18px 24px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.site-header h1 {
+  font-size: 1.75rem;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+/* ---------- Main Container ---------- */
+.container {
+  max-width: 900px;
+  margin: 28px auto;
+  padding: 0 16px;
+}
+
+/* ---------- Action Row ---------- */
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.search-area {
+  flex: 1 1 260px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #fff;
+}
+
+.search-input:focus {
+  border-color: #5c6bc0;
+  box-shadow: 0 0 0 3px rgba(92,107,192,0.15);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.api-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #ececec;
+  color: #444;
+  border: 1px solid #d0d0d0;
+}
+
+.api-mode-badge.is-mock {
+  background: #fff3cd;
+  color: #7a5c00;
+  border-color: #ffd78a;
+}
+
+.api-mode-badge.is-live {
+  background: #d7f5dd;
+  color: #1f6b2e;
+  border-color: #9bd8a7;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: #5c6bc0;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #3f51b5;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #bdbdbd;
+}
+
+.btn-danger {
+  background: #e53935;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #b71c1c;
+}
+
+/* ---------- Result Summary ---------- */
+.result-summary {
+  font-size: 0.82rem;
+  color: #666;
+  margin-bottom: 8px;
+  min-height: 1.2em;
+}
+
+/* ---------- Table ---------- */
+.table-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.song-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.song-table thead {
+  background: #1a1a2e;
+  color: #e8e8ff;
+}
+
+.song-table th {
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.song-table thead th[data-sort-key] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.song-table thead th[data-sort-key]:hover {
+  background: #272743;
+}
+
+.song-table thead th.is-sorted {
+  background: #323255;
+}
+
+.sort-indicator {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+.song-table tbody tr {
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.song-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.song-table tbody tr:hover {
+  background: #eef0fb;
+}
+
+.song-table td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  font-size: 0.93rem;
+}
+
+/* Dim the overplayed badge inline */
+.badge-overplayed {
+  display: inline-block;
+  font-size: 0.7rem;
+  background: #ffecb3;
+  color: #7a5c00;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+
+/* ---------- Empty State ---------- */
+.empty-state {
+  padding: 32px;
+  text-align: center;
+  color: #999;
+  font-size: 0.95rem;
+}
+
+/* ---------- Pagination ---------- */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: #fff;
+  color: #333;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #eef0fb;
+  border-color: #5c6bc0;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.page-btn.active {
+  background: #5c6bc0;
+  border-color: #5c6bc0;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ---------- Modal Overlay ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+/* ---------- Modal Box ---------- */
+.modal-box {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a1a2e;
+  color: #e8e8ff;
+  padding: 14px 18px;
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.modal-close-x {
+  background: none;
+  border: none;
+  color: #e8e8ff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.modal-close-x:hover {
+  opacity: 1;
+}
+
+/* ---------- Form inside Modal ---------- */
+#songForm {
+  padding: 20px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.form-group input[type="text"] {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.93rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-group input[type="text"]:focus {
+  border-color: #5c6bc0;
+  box-shadow: 0 0 0 3px rgba(92,107,192,0.12);
+}
+
+.form-group input[type="text"]:read-only {
+  background: #f5f5f5;
+  color: #555;
+  cursor: default;
+}
+
+.form-group--checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.form-group--checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.93rem;
+  font-weight: normal;
+  color: #333;
+}
+
+.form-group--checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ---------- Modal Footer ---------- */
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+/* ---------- Delete Confirm Dialog ---------- */
+.confirm-box {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.3);
+  overflow: hidden;
+  border: 1px solid #f0d7d7;
+}
+
+.confirm-header {
+  background: #4a1111;
+  color: #ffe7e7;
+  padding: 14px 16px;
+}
+
+.confirm-header h3 {
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.confirm-body {
+  padding: 14px 16px;
+}
+
+.confirm-body p {
+  color: #4a1f1f;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.confirm-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+/* ---------- Mobile Responsiveness ---------- */
+@media (max-width: 600px) {
+  .site-header h1 {
+    font-size: 1.3rem;
+  }
+
+  .action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-buttons {
+    justify-content: flex-end;
+  }
+
+  .song-table th:nth-child(3),
+  .song-table td:nth-child(3) {
+    display: none; /* Hide Album column on small screens */
+  }
+
+  .modal-box {
+    max-width: 100%;
+  }
+}
