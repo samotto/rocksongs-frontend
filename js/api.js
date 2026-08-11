@@ -84,6 +84,13 @@ let _mockSongs = [...MOCK_SONGS];
 // Simple counter for generating new mock IDs.
 let _nextId = MOCK_SONGS.length + 1;
 
+let _mockUsers = [
+  { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", role: "Admin", status: "Active", lastLogin: "Today, 10:42 AM" },
+  { id: "2", name: "Alex Morgan", email: "alex.morgan@example.com", role: "Basic", status: "Active", lastLogin: "Aug 9, 2026" },
+  { id: "3", name: "Jamie Chen", email: "jamie.chen@example.com", role: "Basic", status: "Active", lastLogin: "Aug 4, 2026" },
+  { id: "4", name: "Taylor Reed", email: "taylor.reed@example.com", role: "Admin", status: "Active", lastLogin: "Jul 28, 2026" },
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Simulate a network delay so async patterns are realistic. */
@@ -157,7 +164,7 @@ async function getCurrentUser() {
 
   await _delay();
   // Mock: always returns a user (assumed logged in per spec).
-  return { id: 1, username: "sam", role: "admin" };
+  return { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", username: "sam", role: "Admin" };
 }
 
 /**
@@ -199,6 +206,27 @@ async function logout() {
 
   await _delay();
   return { success: true };
+}
+
+async function getUsers() {
+  if (!USE_MOCK_API) return apiRequest("/users");
+  await _delay();
+  return _mockUsers.map(user => ({ ...user }));
+}
+
+async function updateUser(id, changes) {
+  if (!USE_MOCK_API) return apiRequest(`/users/${id}`, { method: "PUT", body: changes });
+  await _delay();
+  const index = _mockUsers.findIndex(user => String(user.id) === String(id));
+  if (index === -1) throw new Error(`User ${id} not found`);
+  _mockUsers[index] = { ..._mockUsers[index], ...changes, id: String(id) };
+  return { ..._mockUsers[index] };
+}
+
+async function resetUserPassword(id) {
+  if (!USE_MOCK_API) return apiRequest(`/users/${id}/reset-password`, { method: "POST" });
+  await _delay();
+  return { success: true, message: "Password reset email sent." };
 }
 
 // ─── Song CRUD Functions ──────────────────────────────────────────────────────
@@ -303,6 +331,9 @@ window.RockSongsApi = {
   getCurrentUser,
   login,
   logout,
+  getUsers,
+  updateUser,
+  resetUserPassword,
   getSongs,
   createSong,
   updateSong,

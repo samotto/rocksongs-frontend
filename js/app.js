@@ -38,6 +38,8 @@ const state = {
 
   /** Currently logged-in user object, or null if logged out. */
   currentUser: null,
+  users: [],
+  selectedUser: null,
 
   /**
    * Which modal mode is active: "create" | "edit" | "view" | null
@@ -64,8 +66,26 @@ const els = {
   apiModeBadge:   document.getElementById("apiModeBadge"),
 
   addSongBtn:     document.getElementById("addSongBtn"),
-  loginBtn:       document.getElementById("loginBtn"),
-  logoutBtn:      document.getElementById("logoutBtn"),
+  userAdminBtn:   document.getElementById("userAdminBtn"),
+  userSettingsBtn: document.getElementById("userSettingsBtn"),
+  authIconBtn:    document.getElementById("authIconBtn"),
+  catalogView:    document.getElementById("catalogView"),
+  userAdminView:  document.getElementById("userAdminView"),
+  backToCatalogBtn: document.getElementById("backToCatalogBtn"),
+  userTableBody:  document.getElementById("userTableBody"),
+  userModalOverlay: document.getElementById("userModalOverlay"),
+  userModalCloseX: document.getElementById("userModalCloseX"),
+  userModalCancelBtn: document.getElementById("userModalCancelBtn"),
+  userModalSaveBtn: document.getElementById("userModalSaveBtn"),
+  resetPasswordBtn: document.getElementById("resetPasswordBtn"),
+  userFieldId: document.getElementById("userFieldId"),
+  userFieldName: document.getElementById("userFieldName"),
+  userFieldEmail: document.getElementById("userFieldEmail"),
+  userFieldRole: document.getElementById("userFieldRole"),
+  userInitials: document.getElementById("userInitials"),
+  userDisplayName: document.getElementById("userDisplayName"),
+  userEmailDisplay: document.getElementById("userEmailDisplay"),
+  passwordResetStatus: document.getElementById("passwordResetStatus"),
 
   modalOverlay:   document.getElementById("modalOverlay"),
   modalTitle:     document.getElementById("modalTitle"),
@@ -148,9 +168,80 @@ async function checkAuthAndUpdateUI() {
  */
 function updateAuthUI() {
   const loggedIn = !!state.currentUser;
+  const isAdmin = loggedIn && String(state.currentUser.role).toLowerCase() === "admin";
   els.addSongBtn.style.display  = loggedIn ? "inline-flex" : "none";
-  els.loginBtn.style.display    = loggedIn ? "none"        : "inline-flex";
-  els.logoutBtn.style.display   = loggedIn ? "inline-flex" : "none";
+  els.userAdminBtn.style.display = isAdmin ? "inline-flex" : "none";
+  els.userSettingsBtn.style.display = loggedIn ? "inline-flex" : "none";
+  els.authIconBtn.title = loggedIn ? "Log out" : "Log in";
+  els.authIconBtn.setAttribute("aria-label", loggedIn ? "Log out" : "Log in");
+  els.authIconBtn.classList.toggle("is-login", !loggedIn);
+}
+
+async function openUserAdministration() {
+  if (!state.currentUser || String(state.currentUser.role).toLowerCase() !== "admin") return;
+  state.users = await api.getUsers();
+  renderUsers();
+  els.catalogView.style.display = "none";
+  els.userAdminView.style.display = "block";
+}
+
+function renderUsers() {
+  els.userTableBody.innerHTML = "";
+  state.users.forEach(user => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td><strong>${escapeHtml(user.name)}</strong><span class="table-secondary">${escapeHtml(user.email)}</span></td><td><span class="role-badge role-${user.role.toLowerCase()}">${escapeHtml(user.role)}</span></td><td><span class="status-dot"></span>${escapeHtml(user.status)}</td><td>${escapeHtml(user.lastLogin)}</td>`;
+    row.addEventListener("click", () => openUserModal(user.id));
+    els.userTableBody.appendChild(row);
+  });
+}
+
+function openUserModal(userId) {
+  const user = state.users.find(item => String(item.id) === String(userId));
+  if (!user) return;
+  state.selectedUser = user;
+  els.userFieldId.value = user.id;
+  els.userFieldName.value = user.name;
+  els.userFieldEmail.value = user.email;
+  els.userFieldRole.value = user.role;
+  els.userDisplayName.textContent = user.name;
+  els.userEmailDisplay.textContent = user.email;
+  els.userInitials.textContent = user.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
+  els.passwordResetStatus.textContent = "";
+  els.userModalOverlay.style.display = "flex";
+  setTimeout(() => els.userFieldName.focus(), 50);
+}
+
+function closeUserModal() {
+  state.selectedUser = null;
+  els.userModalOverlay.style.display = "none";
+  els.passwordResetStatus.textContent = "";
+}
+
+async function saveUser() {
+  const name = els.userFieldName.value.trim();
+  const email = els.userFieldEmail.value.trim();
+  if (!name || !email) return alert("Name and email are required.");
+  els.userModalSaveBtn.disabled = true;
+  try {
+    await api.updateUser(els.userFieldId.value, { name, email, role: els.userFieldRole.value });
+    state.users = await api.getUsers();
+    renderUsers();
+    closeUserModal();
+  } finally {
+    els.userModalSaveBtn.disabled = false;
+  }
+}
+
+async function resetSelectedUserPassword() {
+  if (!state.selectedUser) return;
+  els.resetPasswordBtn.disabled = true;
+  els.passwordResetStatus.textContent = "Sending reset…";
+  try {
+    const result = await api.resetUserPassword(state.selectedUser.id);
+    els.passwordResetStatus.textContent = result.message || "Password reset email sent.";
+  } finally {
+    els.resetPasswordBtn.disabled = false;
+  }
 }
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
@@ -661,27 +752,32 @@ function wireEvents() {
   // + New Song button.
   els.addSongBtn.addEventListener("click", openCreateModal);
 
-  // Login button — mock login.
-  els.loginBtn.addEventListener("click", async () => {
-    try {
-      state.currentUser = await api.login("sam", "password");
-    } catch {
-      state.currentUser = { id: 1, username: "sam", role: "admin" };
+  els.userAdminBtn.addEventListener("click", openUserAdministration);
+  els.backToCatalogBtn.addEventListener("click", () => {
+    els.userAdminView.style.display = "none";
+    els.catalogView.style.display = "block";
+  });
+  els.userSettingsBtn.addEventListener("click", () => alert(`User settings for ${state.currentUser.email}`));
+  els.authIconBtn.addEventListener("click", async () => {
+    if (state.currentUser) {
+      await api.logout();
+      state.currentUser = null;
+      els.userAdminView.style.display = "none";
+      els.catalogView.style.display = "block";
+      closeUserModal();
+    } else {
+      state.currentUser = await api.login("sam@overturegroup.com", "password");
     }
     updateAuthUI();
-    // Re-render so edit controls reflect login state.
-    renderApp();
-  });
-
-  // Logout button — mock logout.
-  els.logoutBtn.addEventListener("click", async () => {
-    await api.logout();
-    state.currentUser = null;
-    updateAuthUI();
-    // Close modal if open, in case user was editing.
     closeModal();
     renderApp();
   });
+
+  els.userModalCloseX.addEventListener("click", closeUserModal);
+  els.userModalCancelBtn.addEventListener("click", closeUserModal);
+  els.userModalSaveBtn.addEventListener("click", saveUser);
+  els.resetPasswordBtn.addEventListener("click", resetSelectedUserPassword);
+  els.userModalOverlay.addEventListener("click", event => { if (event.target === els.userModalOverlay) closeUserModal(); });
 
   // Modal — Save button.
   els.modalSaveBtn.addEventListener("click", handleSaveSong);
@@ -703,7 +799,8 @@ function wireEvents() {
 
   // Close modal with Escape key.
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && state.modalMode !== null) closeModal();
+    if (e.key === "Escape" && els.userModalOverlay.style.display !== "none") closeUserModal();
+    else if (e.key === "Escape" && state.modalMode !== null) closeModal();
   });
 }
 
