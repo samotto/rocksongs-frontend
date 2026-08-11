@@ -77,9 +77,11 @@ const els = {
   showSignupBtn: document.getElementById("showSignupBtn"),
   signupForm:    document.getElementById("signupForm"),
   signupEmail:   document.getElementById("signupEmail"),
+  signupConfirmEmail: document.getElementById("signupConfirmEmail"),
   signupPassword: document.getElementById("signupPassword"),
   signupConfirmPassword: document.getElementById("signupConfirmPassword"),
   signupStatus:  document.getElementById("signupStatus"),
+  resendVerificationBtn: document.getElementById("resendVerificationBtn"),
   signupSubmitBtn: document.getElementById("signupSubmitBtn"),
 
   addSongBtn:     document.getElementById("addSongBtn"),
@@ -94,6 +96,7 @@ const els = {
   userModalCloseX: document.getElementById("userModalCloseX"),
   userModalCancelBtn: document.getElementById("userModalCancelBtn"),
   userModalSaveBtn: document.getElementById("userModalSaveBtn"),
+  userModalDeleteBtn: document.getElementById("userModalDeleteBtn"),
   resetPasswordBtn: document.getElementById("resetPasswordBtn"),
   userFieldId: document.getElementById("userFieldId"),
   userFieldName: document.getElementById("userFieldName"),
@@ -126,6 +129,7 @@ const els = {
   modalCloseX:    document.getElementById("modalCloseX"),
 
   deleteConfirmOverlay: document.getElementById("deleteConfirmOverlay"),
+  deleteConfirmTitle: document.getElementById("deleteConfirmTitle"),
   deleteConfirmText: document.getElementById("deleteConfirmText"),
   deleteConfirmCancelBtn: document.getElementById("deleteConfirmCancelBtn"),
   deleteConfirmOkBtn: document.getElementById("deleteConfirmOkBtn"),
@@ -146,6 +150,7 @@ async function initApp() {
 
   updateApiModeBadge();
   wireEvents();
+  if (await handleEmailVerificationFromUrl()) return;
   await checkAuthAndUpdateUI();
   if (state.currentUser) {
     hideLoginScreen();
@@ -200,7 +205,7 @@ async function checkAuthAndUpdateUI() {
 function updateAuthUI() {
   const loggedIn = !!state.currentUser;
   const isSuperUser = loggedIn && state.currentUser.super_user === true;
-  els.addSongBtn.style.display  = loggedIn ? "inline-flex" : "none";
+  els.addSongBtn.style.display  = isSuperUser ? "inline-flex" : "none";
   els.userAdminBtn.style.display = isSuperUser ? "inline-flex" : "none";
   els.userSettingsBtn.style.display = loggedIn ? "inline-flex" : "none";
   els.authIconBtn.title = loggedIn ? "Log out" : "Log in";
@@ -229,6 +234,8 @@ function switchAuthMode(mode) {
     : "Create an account to start exploring the catalog.";
   els.loginStatus.textContent = "";
   els.signupStatus.textContent = "";
+  els.signupStatus.classList.add("is-error");
+  els.resendVerificationBtn.style.display = "none";
   setTimeout(() => {
     if (isLogin) (els.loginEmail.value ? els.loginPassword : els.loginEmail).focus();
     else els.signupEmail.focus();
@@ -265,7 +272,9 @@ async function handleLogin(event) {
     els.loginPassword.value = "";
     els.loginStatus.textContent = error.status === 401
       ? "Incorrect email or password."
-      : `Could not reach the backend at ${window.RockSongsApiConfig?.API_BASE_URL || "the configured URL"}.`;
+      : error.status === 403
+        ? (error.detail || "Verify your email address before logging in.")
+        : `Could not reach the backend at ${window.RockSongsApiConfig?.API_BASE_URL || "the configured URL"}.`;
     els.loginPassword.focus();
   } finally {
     els.loginSubmitBtn.disabled = false;
@@ -276,12 +285,23 @@ async function handleLogin(event) {
 async function handleSignup(event) {
   event.preventDefault();
   const email = els.signupEmail.value.trim();
+  const emailConfirmation = els.signupConfirmEmail.value.trim();
   const password = els.signupPassword.value;
   const confirmation = els.signupConfirmPassword.value;
   els.signupStatus.textContent = "";
+  els.signupStatus.classList.add("is-error");
+  els.resendVerificationBtn.style.display = "none";
 
   if (!email) {
     els.signupStatus.textContent = "Enter your email address.";
+    return;
+  }
+  if (!emailConfirmation) {
+    els.signupStatus.textContent = "Confirm your email address.";
+    return;
+  }
+  if (email.toLowerCase() !== emailConfirmation.toLowerCase()) {
+    els.signupStatus.textContent = "Email addresses do not match.";
     return;
   }
   if (password.length < 8 || password.length > 72) {
@@ -296,18 +316,72 @@ async function handleSignup(event) {
   els.signupSubmitBtn.disabled = true;
   els.signupSubmitBtn.textContent = "Creating account…";
   try {
-    state.currentUser = await api.register(email, password);
-    updateAuthUI();
-    hideLoginScreen();
-    await loadSongs();
+    await api.register(email, password);
+    els.signupPassword.value = "";
+    els.signupConfirmPassword.value = "";
+    els.signupStatus.classList.remove("is-error");
+    els.signupStatus.textContent = `We sent a confirmation email to ${email}. Click its button to finish signing up.`;
+    els.resendVerificationBtn.style.display = "inline-flex";
   } catch (error) {
     console.error("Sign-up failed:", error);
     els.signupStatus.textContent = error.status === 409
       ? "An account with this email already exists."
       : (error.detail || "Could not create the account. Please try again.");
+    if (error.status === 409 || error.status === 502) {
+      els.resendVerificationBtn.style.display = "inline-flex";
+    }
   } finally {
     els.signupSubmitBtn.disabled = false;
     els.signupSubmitBtn.textContent = "Create account";
+  }
+}
+
+async function resendSignupVerification() {
+  const email = els.signupEmail.value.trim();
+  if (!email) {
+    els.signupStatus.classList.add("is-error");
+    els.signupStatus.textContent = "Enter the email address you used to sign up.";
+    return;
+  }
+  els.resendVerificationBtn.disabled = true;
+  els.resendVerificationBtn.textContent = "Sending…";
+  try {
+    await api.resendVerification(email);
+    els.signupStatus.classList.remove("is-error");
+    els.signupStatus.textContent = "If that account is pending, a new verification email has been sent.";
+  } catch (error) {
+    els.signupStatus.classList.add("is-error");
+    els.signupStatus.textContent = error.detail || "Could not resend the verification email.";
+  } finally {
+    els.resendVerificationBtn.disabled = false;
+    els.resendVerificationBtn.textContent = "Resend verification email";
+  }
+}
+
+async function handleEmailVerificationFromUrl() {
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get("verify_token");
+  if (!token) return false;
+
+  showLoginScreen();
+  els.loginStatus.textContent = "Confirming your email address…";
+  try {
+    state.currentUser = await api.verifyEmail(token);
+    url.searchParams.delete("verify_token");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    updateAuthUI();
+    hideLoginScreen();
+    await loadSongs();
+    return true;
+  } catch (error) {
+    url.searchParams.delete("verify_token");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    state.currentUser = null;
+    updateAuthUI();
+    switchAuthMode("login");
+    els.loginStatus.textContent = error.detail || "This verification link is invalid or has expired.";
+    renderApp();
+    return true;
   }
 }
 
@@ -343,6 +417,8 @@ function openUserModal(userId) {
   els.userEmailDisplay.textContent = user.email;
   els.userInitials.textContent = user.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
   els.passwordResetStatus.textContent = "";
+  const isCurrentUser = String(user.id) === String(state.currentUser.id);
+  els.userModalDeleteBtn.style.display = isCurrentUser ? "none" : "inline-flex";
   els.userModalOverlay.style.display = "flex";
   setTimeout(() => els.userFieldName.focus(), 50);
 }
@@ -393,6 +469,32 @@ async function resetSelectedUserPassword() {
   const targetUser = state.selectedUser;
   closeUserModal();
   openPasswordSettings(targetUser);
+}
+
+async function deleteSelectedUser() {
+  if (!state.selectedUser || state.currentUser?.super_user !== true) return;
+  const targetUser = state.selectedUser;
+  if (String(targetUser.id) === String(state.currentUser.id)) return;
+
+  const label = `user "${targetUser.name || targetUser.email}" (${targetUser.email})`;
+  const confirmed = await confirmDeleteWarning(label, "User");
+  if (!confirmed) return;
+
+  els.userModalDeleteBtn.disabled = true;
+  els.passwordResetStatus.textContent = "";
+  els.passwordResetStatus.classList.remove("is-error");
+  try {
+    await api.deleteUser(targetUser.id);
+    state.users = await api.getUsers();
+    renderUsers();
+    closeUserModal();
+  } catch (error) {
+    console.error("User deletion failed:", error);
+    els.passwordResetStatus.textContent = error.detail || "Could not delete the user. Please try again.";
+    els.passwordResetStatus.classList.add("is-error");
+  } finally {
+    els.userModalDeleteBtn.disabled = false;
+  }
 }
 
 function openPasswordSettings(user = state.currentUser) {
@@ -732,6 +834,7 @@ function getPageNumbers(current, total) {
  * openCreateModal — Opens the modal for creating a new song.
  */
 function openCreateModal() {
+  if (state.currentUser?.super_user !== true) return;
   state.modalMode = "create";
   state.modalSong = null;
 
@@ -758,11 +861,10 @@ function openViewOrEditModal(songId) {
   const song = state.songs.find(s => String(s.id) === String(songId));
   if (!song) return;
 
-  const loggedIn = !!state.currentUser;
   state.modalMode = "edit";
   state.modalSong = song;
 
-  els.modalTitle.textContent = "Edit Song";
+  els.modalTitle.textContent = `Edit ${song.artist} Song`;
 
   // Populate form fields.
   els.fieldId.value              = song.id;
@@ -771,10 +873,10 @@ function openViewOrEditModal(songId) {
   els.fieldAlbum.value           = song.album   || "";
   els.fieldOverplayed.checked    = song.overplayed === "Y";
 
-  setModalFieldsReadOnly(!loggedIn);
+  setModalFieldsReadOnly(false);
 
-  els.modalSaveBtn.style.display   = loggedIn ? "inline-flex" : "none";
-  els.modalDeleteBtn.style.display = loggedIn ? "inline-flex" : "none";
+  els.modalSaveBtn.style.display   = "inline-flex";
+  els.modalDeleteBtn.style.display = "inline-flex";
   els.modalSaveBtn.textContent     = "Update";
 
   showModal();
@@ -820,6 +922,7 @@ function setModalFieldsReadOnly(readOnly) {
  * Builds a song object from the form, calls the API, reloads songs.
  */
 async function handleSaveSong() {
+  if (state.currentUser?.super_user !== true) return;
   const artist = els.fieldArtist.value.trim();
   const song   = els.fieldSong.value.trim();
 
@@ -874,6 +977,7 @@ async function handleSaveSong() {
  * @param {string|number} songId - The song id to delete.
  */
 async function handleDeleteSong(songId) {
+  if (state.currentUser?.super_user !== true) return;
   const song = state.songs.find(s => String(s.id) === String(songId));
   const name = song ? `"${song.artist} – ${song.song}"` : "this song";
 
@@ -901,14 +1005,15 @@ async function handleDeleteSong(songId) {
  * confirmDeleteWarning — Shows a custom warning dialog for delete actions.
  * Returns true only when the user explicitly confirms deletion.
  */
-function confirmDeleteWarning(songLabel) {
+function confirmDeleteWarning(itemLabel, itemType = "Song") {
   if (!els.deleteConfirmOverlay) {
-    return Promise.resolve(confirm(`Delete ${songLabel}? This cannot be undone.`));
+    return Promise.resolve(confirm(`Delete ${itemLabel}? This cannot be undone.`));
   }
 
   return new Promise(resolve => {
+    els.deleteConfirmTitle.textContent = `Delete ${itemType}?`;
     els.deleteConfirmText.textContent =
-      `You are about to permanently delete ${songLabel}. This action cannot be undone.`;
+      `You are about to permanently delete ${itemLabel}. This action cannot be undone.`;
 
     const finish = (result) => {
       els.deleteConfirmOverlay.style.display = "none";
@@ -960,6 +1065,7 @@ function wireEvents() {
   });
   els.loginForm.addEventListener("submit", handleLogin);
   els.signupForm.addEventListener("submit", handleSignup);
+  els.resendVerificationBtn.addEventListener("click", resendSignupVerification);
   els.showLoginBtn.addEventListener("click", () => switchAuthMode("login"));
   els.showSignupBtn.addEventListener("click", () => switchAuthMode("signup"));
   // Search input — filter without hitting the API.
@@ -1019,6 +1125,7 @@ function wireEvents() {
   els.userModalCloseX.addEventListener("click", closeUserModal);
   els.userModalCancelBtn.addEventListener("click", closeUserModal);
   els.userModalSaveBtn.addEventListener("click", saveUser);
+  els.userModalDeleteBtn.addEventListener("click", deleteSelectedUser);
   els.resetPasswordBtn.addEventListener("click", resetSelectedUserPassword);
   els.userModalOverlay.addEventListener("click", event => { if (event.target === els.userModalOverlay) closeUserModal(); });
   els.settingsModalCloseX.addEventListener("click", closePasswordSettings);

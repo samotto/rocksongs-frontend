@@ -100,7 +100,7 @@
   <div id="loginOverlay" class="login-overlay" style="display:flex;" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <div class="login-card">
       <div class="login-mark" aria-hidden="true">🎸</div>
-      <h2 id="loginTitle">Welcome back</h2>
+      <h2 id="loginTitle">Rock Songs Catalog</h2>
       <p id="authSubtitle">Log in to open the Rock Song Catalog.</p>
       <div class="auth-tabs" role="tablist" aria-label="Account access">
         <button type="button" id="showLoginBtn" class="auth-tab active" role="tab" aria-selected="true">Log in</button>
@@ -129,6 +129,10 @@
           <input type="email" id="signupEmail" autocomplete="username" required />
         </div>
         <div class="form-group">
+          <label for="signupConfirmEmail">Confirm email address</label>
+          <input type="email" id="signupConfirmEmail" autocomplete="email" required />
+        </div>
+        <div class="form-group">
           <label for="signupPassword">Create password</label>
           <div class="password-field">
             <input type="password" id="signupPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
@@ -147,6 +151,7 @@
           </div>
         </div>
         <div id="signupStatus" class="inline-status is-error" aria-live="polite"></div>
+        <button type="button" id="resendVerificationBtn" class="btn btn-secondary login-submit" style="display:none;">Resend verification email</button>
         <button type="submit" id="signupSubmitBtn" class="btn btn-primary login-submit">Create account</button>
       </form>
     </div>
@@ -216,7 +221,7 @@
         </div>
         <div id="passwordResetStatus" class="inline-status" aria-live="polite"></div>
         <div class="modal-footer split-footer">
-          <button type="button" id="resetPasswordBtn" class="btn btn-secondary">Reset password</button>
+          <div><button type="button" id="resetPasswordBtn" class="btn btn-secondary">Reset password</button> <button type="button" id="userModalDeleteBtn" class="btn btn-danger">Delete user</button></div>
           <div><button type="button" id="userModalCancelBtn" class="btn btn-secondary">Cancel</button> <button type="button" id="userModalSaveBtn" class="btn btn-primary">Save changes</button></div>
         </div>
       </form>
@@ -237,11 +242,21 @@
         <div class="form-divider"><span>Reset password</span></div>
         <div class="form-group">
           <label for="settingsNewPassword">New password</label>
-          <input type="password" id="settingsNewPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
+          <div class="password-field">
+            <input type="password" id="settingsNewPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
+            <button type="button" class="password-toggle" data-password-toggle="settingsNewPassword" aria-label="Show password" title="Show password">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5.5 0-9.5 5.2-9.7 5.4a2.5 2.5 0 0 0 0 3.2C2.5 13.8 6.5 19 12 19s9.5-5.2 9.7-5.4a2.5 2.5 0 0 0 0-3.2C21.5 10.2 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label for="settingsConfirmPassword">Confirm new password</label>
-          <input type="password" id="settingsConfirmPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
+          <div class="password-field">
+            <input type="password" id="settingsConfirmPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
+            <button type="button" class="password-toggle" data-password-toggle="settingsConfirmPassword" aria-label="Show password" title="Show password">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5.5 0-9.5 5.2-9.7 5.4a2.5 2.5 0 0 0 0 3.2C2.5 13.8 6.5 19 12 19s9.5-5.2 9.7-5.4a2.5 2.5 0 0 0 0-3.2C21.5 10.2 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
+            </button>
+          </div>
         </div>
         <div id="settingsPasswordStatus" class="inline-status" aria-live="polite"></div>
         <div class="modal-footer">
@@ -264,7 +279,7 @@
   >
     <div class="confirm-box">
       <div class="confirm-header">
-        <h3 id="deleteConfirmTitle">Delete Song?</h3>
+        <h3 id="deleteConfirmTitle">Confirm deletion</h3>
       </div>
       <div class="confirm-body">
         <p id="deleteConfirmText">This action cannot be undone.</p>
@@ -277,9 +292,9 @@
   </div>
 
   <!-- Environment config must load before the API and application. -->
-  <script src="js/config.js?v=20260811-2"></script>
-  <script src="js/api.js?v=20260811-6"></script>
-  <script src="js/app.js?v=20260811-6"></script>
+  <script src="js/config.js?v=20260811-3"></script>
+  <script src="js/api.js?v=20260811-8"></script>
+  <script src="js/app.js?v=20260811-11"></script>
 
 </body>
 </html>

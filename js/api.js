@@ -204,7 +204,29 @@ async function register(email, password) {
   }
 
   await _delay();
-  return { id: String(Date.now()), email, super_user: false };
+  return { message: "Verification email sent", email };
+}
+
+async function verifyEmail(token) {
+  if (!USE_MOCK_API) {
+    return apiRequest("/auth/verify-email", {
+      method: "POST",
+      body: { token },
+    });
+  }
+  await _delay();
+  return { id: "1", name: "Verified User", email: "verified@example.com", super_user: false };
+}
+
+async function resendVerification(email) {
+  if (!USE_MOCK_API) {
+    return apiRequest("/auth/resend-verification", {
+      method: "POST",
+      body: { email },
+    });
+  }
+  await _delay();
+  return { message: "Verification email sent" };
 }
 
 /**
@@ -251,6 +273,18 @@ async function updateUser(id, changes) {
   if (index === -1) throw new Error(`User ${id} not found`);
   _mockUsers[index] = { ..._mockUsers[index], ...changes, id: String(id) };
   return { ..._mockUsers[index] };
+}
+
+async function deleteUser(id) {
+  if (!USE_MOCK_API) {
+    await apiRequest(`/users/${id}`, { method: "DELETE" });
+    return { success: true };
+  }
+  await _delay();
+  const index = _mockUsers.findIndex(user => String(user.id) === String(id));
+  if (index === -1) throw new Error(`User ${id} not found`);
+  _mockUsers.splice(index, 1);
+  return { success: true };
 }
 
 async function resetUserPassword(id, newPassword) {
@@ -367,9 +401,12 @@ window.RockSongsApi = {
   getCurrentUser,
   login,
   register,
+  verifyEmail,
+  resendVerification,
   logout,
   getUsers,
   updateUser,
+  deleteUser,
   resetUserPassword,
   getSongs,
   createSong,
