@@ -15,6 +15,7 @@ rocksongs-frontend/
 │   └── styles.css      # All styles, no framework
 ├── js/
 │   ├── api.js          # All backend communication (currently mock)
+│   ├── config.js       # Local/remote environment selection
 │   └── app.js          # App state, rendering, events, CRUD logic
 └── README.md           # This file
 ```
@@ -44,14 +45,24 @@ Install the [Live Server extension](https://marketplace.visualstudio.com/items?i
 
 ## Architecture Notes
 
-### `js/api.js`
-All backend communication is isolated here. Currently uses mock data and simulated `async` functions. To connect to the real FastAPI/Railway backend:
+### `js/config.js`
 
-1. Set `API_BASE_URL` to your Railway URL:
-   ```js
-   const API_BASE_URL = "https://rocksongs-api.up.railway.app";
-   ```
-2. Replace each mock function body with a real `fetch()` call. Each function has a `TODO (real API):` comment showing exactly what the real call should look like.
+All environment-specific frontend values live here. The frontend selects `local`
+automatically on `localhost` or `127.0.0.1`; every other hostname uses `remote`.
+
+- Local API: `http://localhost:8000`
+- Remote API: set `REMOTE_API_BASE_URL` to the Railway public backend URL
+- During local development, keep `ENVIRONMENT_OVERRIDE` set to `"local"`
+- When publishing GitHub Pages, set `ENVIRONMENT_OVERRIDE` to `"remote"`
+- `USE_MOCK_API` can be enabled independently in either environment
+- Request timeouts are configurable per environment
+
+No secrets belong in this file because GitHub Pages serves it publicly.
+
+### `js/api.js`
+
+All backend communication is isolated here and reads its URL, mode, and timeout
+from `window.RockSongsConfig` created by `js/config.js`.
 
 ### `js/app.js`
 Manages all application state, rendering, and user interactions. Key functions:
@@ -100,7 +111,8 @@ This is a static frontend and can be deployed to **GitHub Pages**:
 1. Push to GitHub.
 2. In repo Settings → Pages, set source to the `main` branch root.
 3. Your app will be live at `https://<username>.github.io/rocksongs-frontend/`.
+4. Set `REMOTE_API_BASE_URL` in `js/config.js` to the Railway backend's HTTPS URL.
 
 ## Backend
 
-The backend is a Python/FastAPI app deployed on Railway. Backend URL is configured in `js/api.js` via the `API_BASE_URL` constant.
+The backend is a Python/FastAPI app deployed on Railway. Its public URL is configured once in `js/config.js`.

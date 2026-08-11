@@ -1,19 +1,15 @@
 /**
  * api.js — All backend communication for RockSongs.
  *
- * Currently uses MOCK DATA and simulated promises.
- * To connect to the real Railway backend, replace each function body
- * with a real fetch() call to the API_BASE_URL endpoint.
+ * Supports both live API calls and optional mock data. Environment selection
+ * is centralized in js/config.js.
  */
 
 // ─── Runtime Config (GitHub Pages + Railway) ───────────────────────────────
-// Configure this in index.html via window.RockSongsConfig before loading api.js.
+// Configure this in js/config.js via window.RockSongsConfig before loading api.js.
 const DEFAULT_API_CONFIG = {
-  // TODO: Replace with your real Railway backend URL when ready.
-  // Example: "https://rocksongs-api.up.railway.app"
-  API_BASE_URL: "https://your-railway-backend-url",
-  // Keep mock mode on by default so the app works instantly on static hosting.
-  USE_MOCK_API: true,
+  API_BASE_URL: "",
+  USE_MOCK_API: false,
   REQUEST_TIMEOUT_MS: 10000,
 };
 
@@ -102,6 +98,9 @@ function _delay(ms = 80) {
  * apiRequest — helper for real backend calls when mock mode is disabled.
  */
 async function apiRequest(path, options = {}) {
+  if (!API_BASE_URL) {
+    throw new Error("API_BASE_URL is not configured in js/config.js");
+  }
   const {
     method = "GET",
     body,
