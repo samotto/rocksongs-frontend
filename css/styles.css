@@ -18,6 +18,24 @@ body {
   min-height: 100vh;
 }
 
+.login-overlay { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; background: radial-gradient(circle at top, #34345a 0, #1a1a2e 45%, #10101d 100%); }
+.login-card { width: 100%; max-width: 410px; padding: 32px; border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.4); }
+.login-mark { font-size: 2.4rem; margin-bottom: 10px; }
+.login-card h2 { color: #1a1a2e; font-size: 1.65rem; }
+.login-card > p { color: #666; margin: 6px 0 24px; }
+.login-card form { display: flex; flex-direction: column; gap: 15px; }
+.login-submit { justify-content: center; width: 100%; margin-top: 2px; padding: 11px 16px; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 20px; border-radius: 8px; background: #eceef4; }
+.auth-tab { padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: #555; font-weight: 700; cursor: pointer; }
+.auth-tab.active { background: #fff; color: #3f51b5; box-shadow: 0 1px 4px rgba(0,0,0,.13); }
+.password-field { position: relative; }
+.password-field input { width: 100%; padding-right: 44px !important; }
+.password-toggle { position: absolute; top: 50%; right: 5px; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; transform: translateY(-50%); border: 0; border-radius: 5px; background: transparent; color: #606477; cursor: pointer; }
+.password-toggle:hover { background: #eceef4; color: #303550; }
+.password-toggle:focus-visible { outline: 2px solid #5c6bc0; outline-offset: 1px; }
+.password-toggle svg { width: 20px; height: 20px; fill: currentColor; }
+.password-toggle.is-visible::after { content: ""; position: absolute; width: 23px; height: 2px; border-radius: 2px; background: currentColor; transform: rotate(-45deg); }
+
 /* ---------- Site Header / Banner ---------- */
 .site-header {
   background: #1a1a2e;
@@ -55,9 +73,9 @@ body {
 .user-table th:nth-child(2), .user-table th:nth-child(3) { width: 130px; }
 .user-table th:last-child { width: 160px; }
 .table-secondary { display: block; color: #777; font-size: .8rem; margin-top: 3px; }
-.role-badge { display: inline-block; border-radius: 999px; padding: 3px 9px; font-size: .75rem; font-weight: 700; }
-.role-admin { color: #3f3a91; background: #e8e7fb; }
-.role-basic { color: #455; background: #edf0f0; }
+.access-badge { display: inline-block; min-width: 38px; text-align: center; border-radius: 999px; padding: 3px 9px; font-size: .75rem; font-weight: 700; }
+.access-yes { color: #3f3a91; background: #e8e7fb; }
+.access-no { color: #455; background: #edf0f0; }
 .status-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #2eaa5d; }
 
 /* ---------- Action Row ---------- */
@@ -225,15 +243,25 @@ body {
 
 .song-table tbody tr {
   border-bottom: 1px solid #eee;
-  cursor: pointer;
   transition: background 0.15s;
+}
+
+.song-table tbody tr.is-clickable,
+.user-table tbody tr {
+  cursor: pointer;
+}
+
+.song-table tbody tr.is-clickable:focus-visible {
+  outline: 3px solid rgba(92,107,192,.45);
+  outline-offset: -3px;
 }
 
 .song-table tbody tr:last-child {
   border-bottom: none;
 }
 
-.song-table tbody tr:hover {
+.song-table tbody tr.is-clickable:hover,
+.user-table tbody tr:hover {
   background: #eef0fb;
 }
 
@@ -365,13 +393,19 @@ body {
   gap: 14px;
 }
 
-.form-group input[type="email"], .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: .93rem; background: #fff; }
+.form-group input[type="email"], .form-group input[type="password"], .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: .93rem; background: #fff; }
+.form-group input:focus, .form-group select:focus { border-color: #5c6bc0; outline: none; box-shadow: 0 0 0 3px rgba(92,107,192,.12); }
+.form-group input:read-only { background: #f5f5f5; color: #555; }
 .user-modal-box { max-width: 520px; }
+.settings-modal-box { max-width: 460px; }
 .user-identity { display: flex; align-items: center; gap: 12px; padding-bottom: 4px; }
 .user-identity > div { display: flex; flex-direction: column; gap: 3px; }
 .user-identity span:last-child { color: #777; font-size: .84rem; }
 .user-avatar { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: #5c6bc0; font-weight: 800; }
 .inline-status { min-height: 1.2em; color: #287a43; font-size: .84rem; }
+.inline-status.is-error { color: #b3261e; }
+.form-divider { display: flex; align-items: center; gap: 10px; color: #666; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.form-divider::after { content: ""; height: 1px; background: #ddd; flex: 1; }
 .split-footer { justify-content: space-between; align-items: center; }
 
 .form-group {

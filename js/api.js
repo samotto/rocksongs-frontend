@@ -85,10 +85,10 @@ let _mockSongs = [...MOCK_SONGS];
 let _nextId = MOCK_SONGS.length + 1;
 
 let _mockUsers = [
-  { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", role: "Admin", status: "Active", lastLogin: "Today, 10:42 AM" },
-  { id: "2", name: "Alex Morgan", email: "alex.morgan@example.com", role: "Basic", status: "Active", lastLogin: "Aug 9, 2026" },
-  { id: "3", name: "Jamie Chen", email: "jamie.chen@example.com", role: "Basic", status: "Active", lastLogin: "Aug 4, 2026" },
-  { id: "4", name: "Taylor Reed", email: "taylor.reed@example.com", role: "Admin", status: "Active", lastLogin: "Jul 28, 2026" },
+  { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", super_user: true, status: "Active", lastLogin: "Today, 10:42 AM" },
+  { id: "2", name: "Alex Morgan", email: "alex.morgan@example.com", super_user: false, status: "Active", lastLogin: "Aug 9, 2026" },
+  { id: "3", name: "Jamie Chen", email: "jamie.chen@example.com", super_user: false, status: "Active", lastLogin: "Aug 4, 2026" },
+  { id: "4", name: "Taylor Reed", email: "taylor.reed@example.com", super_user: true, status: "Active", lastLogin: "Jul 28, 2026" },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -127,6 +127,12 @@ async function apiRequest(path, options = {}) {
     if (!response.ok) {
       const error = new Error(`Request failed: ${response.status} ${response.statusText}`);
       error.status = response.status;
+      try {
+        const errorBody = await response.json();
+        error.detail = errorBody.detail;
+      } catch {
+        error.detail = null;
+      }
       throw error;
     }
 
@@ -164,7 +170,7 @@ async function getCurrentUser() {
 
   await _delay();
   // Mock: always returns a user (assumed logged in per spec).
-  return { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", username: "sam", role: "Admin" };
+  return { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", username: "sam", super_user: true };
 }
 
 /**
@@ -174,20 +180,32 @@ async function getCurrentUser() {
  *   method: "POST",
  *   headers: { "Content-Type": "application/json" },
  *   credentials: "include",
- *   body: JSON.stringify({ username, password })
+ *   body: JSON.stringify({ email, password })
  * }).then(res => res.json());
  */
-async function login(username, password) {
+async function login(email, password) {
   if (!USE_MOCK_API) {
     return apiRequest("/auth/login", {
       method: "POST",
-      body: { username, password },
+      body: { email, password },
     });
   }
 
   await _delay();
   // Mock: always succeeds.
-  return { id: 1, username: username || "sam", role: "admin" };
+  return { id: "1", name: "Sam Otto", email: email || "sam@overturegroup.com", username: "sam", super_user: true };
+}
+
+async function register(email, password) {
+  if (!USE_MOCK_API) {
+    return apiRequest("/auth/register", {
+      method: "POST",
+      body: { email, password },
+    });
+  }
+
+  await _delay();
+  return { id: String(Date.now()), email, super_user: false };
 }
 
 /**
@@ -209,13 +227,26 @@ async function logout() {
 }
 
 async function getUsers() {
-  if (!USE_MOCK_API) return apiRequest("/users");
+  if (!USE_MOCK_API) {
+    const users = await apiRequest("/users");
+    return users.map(user => ({
+      ...user,
+      status: "Active",
+      lastLogin: user.last_logon_time ? new Date(user.last_logon_time).toLocaleString() : "Never",
+    }));
+  }
   await _delay();
   return _mockUsers.map(user => ({ ...user }));
 }
 
 async function updateUser(id, changes) {
-  if (!USE_MOCK_API) return apiRequest(`/users/${id}`, { method: "PUT", body: changes });
+  if (!USE_MOCK_API) {
+    const user = await apiRequest(`/users/${id}`, {
+      method: "PUT",
+      body: { name: changes.name, email: changes.email, super_user: changes.super_user },
+    });
+    return { ...user, status: "Active" };
+  }
   await _delay();
   const index = _mockUsers.findIndex(user => String(user.id) === String(id));
   if (index === -1) throw new Error(`User ${id} not found`);
@@ -223,10 +254,15 @@ async function updateUser(id, changes) {
   return { ..._mockUsers[index] };
 }
 
-async function resetUserPassword(id) {
-  if (!USE_MOCK_API) return apiRequest(`/users/${id}/reset-password`, { method: "POST" });
+async function resetUserPassword(id, newPassword) {
+  if (!USE_MOCK_API) {
+    return apiRequest(`/users/${id}/reset-password`, {
+      method: "POST",
+      body: { new_password: newPassword },
+    });
+  }
   await _delay();
-  return { success: true, message: "Password reset email sent." };
+  return { success: true, message: "Password updated." };
 }
 
 // ─── Song CRUD Functions ──────────────────────────────────────────────────────
@@ -239,7 +275,8 @@ async function resetUserPassword(id) {
  */
 async function getSongs() {
   if (!USE_MOCK_API) {
-    return apiRequest("/songs");
+    const songs = await apiRequest("/songs");
+    return songs.map(song => ({ ...song, overplayed: song.overplayed ? "Y" : "N" }));
   }
 
   await _delay();
@@ -264,7 +301,7 @@ async function createSong(song) {
   if (!USE_MOCK_API) {
     return apiRequest("/songs", {
       method: "POST",
-      body: song,
+      body: { artist: song.artist, album: song.album, song: song.song, overplayed: song.overplayed === "Y" },
     });
   }
 
@@ -292,7 +329,7 @@ async function updateSong(id, song) {
   if (!USE_MOCK_API) {
     return apiRequest(`/songs/${id}`, {
       method: "PUT",
-      body: song,
+      body: { artist: song.artist, album: song.album, song: song.song, overplayed: song.overplayed === "Y" },
     });
   }
 
@@ -330,6 +367,7 @@ async function deleteSong(id) {
 window.RockSongsApi = {
   getCurrentUser,
   login,
+  register,
   logout,
   getUsers,
   updateUser,
