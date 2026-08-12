@@ -47,13 +47,14 @@ Install the [Live Server extension](https://marketplace.visualstudio.com/items?i
 
 ### `js/config.js`
 
-All environment-specific frontend values live here. The frontend selects `local`
-automatically on `localhost` or `127.0.0.1`; every other hostname uses `remote`.
+All environment-specific frontend values live in the `DEPLOYMENT_CONFIG` block
+at the top of this file. The frontend selects `local` automatically on
+`localhost` or `127.0.0.1`; every other hostname uses `remote`.
 
 - Local API: `http://localhost:8000`
-- Remote API: set `REMOTE_API_BASE_URL` to the Railway public backend URL
-- During local development, keep `ENVIRONMENT_OVERRIDE` set to `"local"`
-- When publishing GitHub Pages, set `ENVIRONMENT_OVERRIDE` to `"remote"`
+- Remote API: `https://api-rocksongs.overturegroup.com`
+- Keep `ENVIRONMENT_OVERRIDE` set to `null` for automatic selection
+- Set it temporarily to `"local"` or `"remote"` only for integration testing
 - `USE_MOCK_API` can be enabled independently in either environment
 - Request timeouts are configurable per environment
 
@@ -110,8 +111,10 @@ This is a static frontend and can be deployed to **GitHub Pages**:
 
 1. Push to GitHub.
 2. In repo Settings → Pages, set source to the `main` branch root.
-3. Your app will be live at `https://<username>.github.io/rocksongs-frontend/`.
-4. Set `REMOTE_API_BASE_URL` in `js/config.js` to the Railway backend's HTTPS URL.
+3. Add your custom hostname to a `CNAME` file and configure it in GitHub Pages.
+4. Set `REMOTE_API_BASE_URL` in the `DEPLOYMENT_CONFIG` block in `js/config.js`.
+5. Configure the backend's `FRONTEND_ORIGINS` and `FRONTEND_URL` variables to
+   match the public frontend URL.
 
 ## Backend
 

@@ -30,6 +30,9 @@ const state = {
   /** Current search query string. */
   searchQuery: "",
 
+  /** User-facing catalog load error, or an empty string after a successful load. */
+  songsLoadError: "",
+
   /** Current sort key: artist | song | album. */
   sortKey: "artist",
 
@@ -398,10 +401,24 @@ async function handleEmailVerificationFromUrl() {
 
 async function openUserAdministration() {
   if (!state.currentUser || state.currentUser.role !== "Admin") return;
-  state.users = await api.getUsers();
-  renderUsers();
-  els.catalogView.style.display = "none";
-  els.userAdminView.style.display = "block";
+  els.userAdminBtn.disabled = true;
+  try {
+    state.users = await api.getUsers();
+    renderUsers();
+    els.catalogView.style.display = "none";
+    els.userAdminView.style.display = "block";
+  } catch (error) {
+    console.error("Failed to load users:", error);
+    if (error.status === 401) {
+      state.currentUser = null;
+      updateAuthUI();
+      showLoginScreen();
+    } else {
+      alert(error.detail || "Could not load User Administration. Please try again.");
+    }
+  } finally {
+    els.userAdminBtn.disabled = false;
+  }
 }
 
 function renderUsers() {
@@ -608,9 +625,13 @@ async function saveUserSettings() {
 async function loadSongs() {
   try {
     state.songs = await api.getSongs();
+    state.songsLoadError = "";
   } catch (err) {
     console.error("Failed to load songs:", err);
     state.songs = [];
+    state.songsLoadError = err.status === 401
+      ? "Your session expired. Please log in again."
+      : "Could not load the catalog. Please check your connection and try again.";
   }
   // Reset to page 1 after a full reload.
   state.currentPage = 1;
@@ -717,6 +738,11 @@ function renderSortHeaders() {
  * renderResultSummary — Updates the small text showing how many songs matched.
  */
 function renderResultSummary() {
+  if (state.songsLoadError) {
+    els.resultSummary.textContent = state.songsLoadError;
+    return;
+  }
+
   const total    = state.songs.length;
   const filtered = state.filteredSongs.length;
   const query    = state.searchQuery.trim();
@@ -746,6 +772,9 @@ function renderSongTable() {
   if (pageSongs.length === 0) {
     els.songTable.style.display  = "none";
     els.emptyState.style.display = "block";
+    els.emptyState.textContent = state.songsLoadError
+      ? state.songsLoadError
+      : "No songs match your search.";
     return;
   }
 
