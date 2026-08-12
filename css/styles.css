@@ -557,6 +557,11 @@ body {
     align-items: stretch;
   }
 
+  .search-area {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
   .action-buttons {
     justify-content: flex-end;
   }
