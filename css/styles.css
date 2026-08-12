@@ -70,13 +70,12 @@ body {
 .view-heading h2 { font-size: 1.6rem; color: #1a1a2e; }
 .eyebrow { color: #5c6bc0; text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; font-weight: 800; margin-bottom: 4px; }
 .view-subtitle { color: #666; margin-top: 5px; }
-.user-table th:nth-child(2), .user-table th:nth-child(3) { width: 130px; }
+.user-table th:nth-child(3) { width: 120px; }
 .user-table th:last-child { width: 160px; }
-.table-secondary { display: block; color: #777; font-size: .8rem; margin-top: 3px; }
-.access-badge { display: inline-block; min-width: 38px; text-align: center; border-radius: 999px; padding: 3px 9px; font-size: .75rem; font-weight: 700; }
-.access-yes { color: #3f3a91; background: #e8e7fb; }
-.access-no { color: #455; background: #edf0f0; }
-.status-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: #2eaa5d; }
+.role-badge { display: inline-block; min-width: 62px; text-align: center; border-radius: 999px; padding: 3px 9px; font-size: .75rem; font-weight: 700; }
+.role-admin { color: #3f3a91; background: #e8e7fb; }
+.role-basic { color: #455; background: #edf0f0; }
+.role-pending { color: #8a5a00; background: #fff1cc; }
 
 /* ---------- Action Row ---------- */
 .action-row {
@@ -199,7 +198,8 @@ body {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .song-table {
@@ -271,7 +271,12 @@ body {
   font-size: 0.93rem;
 }
 
-/* Dim the overplayed badge inline */
+.song-table .overplayed-column {
+  width: 110px;
+  text-align: center;
+}
+
+/* Highlight songs marked as overplayed. */
 .badge-overplayed {
   display: inline-block;
   font-size: 0.7rem;
@@ -279,7 +284,6 @@ body {
   color: #7a5c00;
   border-radius: 3px;
   padding: 1px 5px;
-  margin-left: 6px;
   vertical-align: middle;
   font-weight: 600;
 }
@@ -351,6 +355,9 @@ body {
   border-radius: 10px;
   width: 100%;
   max-width: 480px;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   overflow: hidden;
 }
@@ -391,6 +398,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .form-group input[type="email"], .form-group input[type="password"], .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: .93rem; background: #fff; }
@@ -402,6 +411,8 @@ body {
 .user-identity > div { display: flex; flex-direction: column; gap: 3px; }
 .user-identity span:last-child { color: #777; font-size: .84rem; }
 .user-avatar { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: #5c6bc0; font-weight: 800; }
+.user-details-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.user-email-field { grid-column: 1 / -1; }
 .inline-status { min-height: 1.2em; color: #287a43; font-size: .84rem; }
 .inline-status.is-error { color: #b3261e; }
 .form-divider { display: flex; align-items: center; gap: 10px; color: #666; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
@@ -511,14 +522,35 @@ body {
 
 /* ---------- Mobile Responsiveness ---------- */
 @media (max-width: 600px) {
-  .site-header { padding: 14px 12px; }
+  .site-header { padding: 10px 8px; }
   .header-inner { justify-content: flex-start; }
   .account-nav { right: 0; }
-  .icon-btn { width: 34px; height: 34px; }
-  .site-header h1 { max-width: calc(100% - 126px); }
+  .icon-btn { width: 44px; height: 44px; }
+  .site-header h1 { max-width: calc(100% - 156px); }
   .site-header h1 {
-    font-size: 1.3rem;
+    font-size: 1.15rem;
+    line-height: 1.2;
   }
+
+  .container { margin: 18px auto; padding: 0 10px; }
+
+  .login-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .login-card { margin: auto 0; padding: 22px 18px; }
+
+  .search-input,
+  .form-group input[type="text"],
+  .form-group input[type="email"],
+  .form-group input[type="password"],
+  .form-group select {
+    font-size: 16px;
+  }
+
+  .btn { min-height: 44px; }
 
   .action-row {
     flex-direction: column;
@@ -534,10 +566,39 @@ body {
     display: none; /* Hide Album column on small screens */
   }
 
+  #songTable { table-layout: fixed; }
+  #songTable th,
+  #songTable td { padding: 9px 8px; overflow-wrap: anywhere; }
+  #songTable .overplayed-column { width: 82px; }
+
+  .user-table th:nth-child(3),
+  .user-table td:nth-child(3) {
+    display: table-cell; /* Keep Role visible in the user table */
+  }
+
+  .user-table { table-layout: fixed; }
+  .user-table th,
+  .user-table td { padding: 9px 7px; overflow-wrap: anywhere; }
+  .user-table th:first-child { width: 27%; }
+  .user-table th:nth-child(2) { width: 48%; }
+  .user-table th:nth-child(3) { width: 25%; }
+  .role-badge { min-width: 0; padding: 3px 6px; }
+
   .modal-box {
     max-width: 100%;
+    max-height: calc(100dvh - 24px);
   }
+  .modal-overlay { padding: 12px; }
+  .modal-header { padding: 10px 12px; }
+  .modal-header h2 { min-width: 0; overflow-wrap: anywhere; }
+  .modal-close-x { min-width: 44px; min-height: 44px; }
+  #songForm, .modal-form { padding: 16px 14px 14px; }
   .view-heading { flex-direction: column; }
+  .user-details-grid { grid-template-columns: 1fr; }
+  .user-email-field { grid-column: auto; }
   .user-table th:last-child, .user-table td:last-child { display: none; }
   .split-footer { align-items: stretch; flex-direction: column; }
+  .split-footer > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .split-footer .btn { justify-content: center; padding-inline: 8px; white-space: normal; }
+  .confirm-footer .btn { min-height: 44px; }
 }

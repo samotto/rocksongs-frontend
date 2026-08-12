@@ -81,10 +81,10 @@ let _mockSongs = [...MOCK_SONGS];
 let _nextId = MOCK_SONGS.length + 1;
 
 let _mockUsers = [
-  { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", super_user: true, status: "Active", lastLogin: "Today, 10:42 AM" },
-  { id: "2", name: "Alex Morgan", email: "alex.morgan@example.com", super_user: false, status: "Active", lastLogin: "Aug 9, 2026" },
-  { id: "3", name: "Jamie Chen", email: "jamie.chen@example.com", super_user: false, status: "Active", lastLogin: "Aug 4, 2026" },
-  { id: "4", name: "Taylor Reed", email: "taylor.reed@example.com", super_user: true, status: "Active", lastLogin: "Jul 28, 2026" },
+  { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", role: "Admin", status: "Active", lastLogin: "Today, 10:42 AM" },
+  { id: "2", name: "Alex Morgan", email: "alex.morgan@example.com", role: "Basic", status: "Active", lastLogin: "Aug 9, 2026" },
+  { id: "3", name: "Jamie Chen", email: "jamie.chen@example.com", role: "Pending", status: "Pending", lastLogin: "Never" },
+  { id: "4", name: "Taylor Reed", email: "taylor.reed@example.com", role: "Admin", status: "Active", lastLogin: "Jul 28, 2026" },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ async function getCurrentUser() {
 
   await _delay();
   // Mock: always returns a user (assumed logged in per spec).
-  return { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", username: "sam", super_user: true };
+  return { id: "1", name: "Sam Otto", email: "sam@overturegroup.com", username: "sam", role: "Admin" };
 }
 
 /**
@@ -192,7 +192,7 @@ async function login(email, password) {
 
   await _delay();
   // Mock: always succeeds.
-  return { id: "1", name: "Sam Otto", email: email || "sam@overturegroup.com", username: "sam", super_user: true };
+  return { id: "1", name: "Sam Otto", email: email || "sam@overturegroup.com", username: "sam", role: "Admin" };
 }
 
 async function register(email, password) {
@@ -215,7 +215,7 @@ async function verifyEmail(token) {
     });
   }
   await _delay();
-  return { id: "1", name: "Verified User", email: "verified@example.com", super_user: false };
+  return { id: "1", name: "Verified User", email: "verified@example.com", role: "Basic" };
 }
 
 async function resendVerification(email) {
@@ -252,7 +252,7 @@ async function getUsers() {
     const users = await apiRequest("/users");
     return users.map(user => ({
       ...user,
-      status: "Active",
+      status: user.role === "Pending" ? "Pending" : "Active",
       lastLogin: user.last_logon_time ? new Date(user.last_logon_time).toLocaleString() : "Never",
     }));
   }
@@ -264,15 +264,31 @@ async function updateUser(id, changes) {
   if (!USE_MOCK_API) {
     const user = await apiRequest(`/users/${id}`, {
       method: "PUT",
-      body: { name: changes.name, email: changes.email, super_user: changes.super_user },
+      body: { name: changes.name, email: changes.email, role: changes.role },
     });
-    return { ...user, status: "Active" };
+    return { ...user, status: user.role === "Pending" ? "Pending" : "Active" };
   }
   await _delay();
   const index = _mockUsers.findIndex(user => String(user.id) === String(id));
   if (index === -1) throw new Error(`User ${id} not found`);
-  _mockUsers[index] = { ..._mockUsers[index], ...changes, id: String(id) };
+  _mockUsers[index] = {
+    ..._mockUsers[index],
+    ...changes,
+    id: String(id),
+    status: changes.role === "Pending" ? "Pending" : "Active",
+  };
   return { ..._mockUsers[index] };
+}
+
+async function updateCurrentUser(changes) {
+  if (!USE_MOCK_API) {
+    return apiRequest("/users/me", {
+      method: "PUT",
+      body: { name: changes.name, email: changes.email },
+    });
+  }
+  await _delay();
+  return { ...changes, id: "1", role: "Admin" };
 }
 
 async function deleteUser(id) {
@@ -406,6 +422,7 @@ window.RockSongsApi = {
   logout,
   getUsers,
   updateUser,
+  updateCurrentUser,
   deleteUser,
   resetUserPassword,
   getSongs,

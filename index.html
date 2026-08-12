@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sam's Rock Song Catalog</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260811-6" />
+  <link rel="stylesheet" href="css/styles.css?v=20260812-4" />
 </head>
 <body>
 
@@ -62,6 +62,7 @@
             <th id="thArtist" data-sort-key="artist" aria-sort="ascending">Artist <span class="sort-indicator" aria-hidden="true">▲</span></th>
             <th id="thSong" data-sort-key="song" aria-sort="none">Song <span class="sort-indicator" aria-hidden="true">↕</span></th>
             <th id="thAlbum" data-sort-key="album" aria-sort="none">Album <span class="sort-indicator" aria-hidden="true">↕</span></th>
+            <th class="overplayed-column">Overplayed</th>
           </tr>
         </thead>
         <tbody id="songTableBody">
@@ -91,7 +92,7 @@
     </div>
     <div class="table-wrapper">
       <table class="song-table user-table">
-        <thead><tr><th>User</th><th>Super user</th><th>Status</th><th>Last login</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last login</th></tr></thead>
         <tbody id="userTableBody"></tbody>
       </table>
     </div>
@@ -214,10 +215,17 @@
           <span id="userInitials" class="user-avatar"></span>
           <div><strong id="userDisplayName"></strong><span id="userEmailDisplay"></span></div>
         </div>
-        <div class="form-group"><label for="userFieldName">Name</label><input type="text" id="userFieldName" required /></div>
-        <div class="form-group"><label for="userFieldEmail">Email</label><input type="email" id="userFieldEmail" required /></div>
-        <div class="form-group form-group--checkbox">
-          <label><input type="checkbox" id="userFieldSuperUser" /> Super user</label>
+        <div class="user-details-grid">
+          <div class="form-group"><label for="userFieldName">Name</label><input type="text" id="userFieldName" required /></div>
+          <div class="form-group">
+            <label for="userFieldRole">Role</label>
+            <select id="userFieldRole">
+              <option value="Admin">Admin</option>
+              <option value="Basic">Basic</option>
+              <option value="Pending">Pending</option>
+            </select>
+          </div>
+          <div class="form-group user-email-field"><label for="userFieldEmail">Email</label><input type="email" id="userFieldEmail" required /></div>
         </div>
         <div id="passwordResetStatus" class="inline-status" aria-live="polite"></div>
         <div class="modal-footer split-footer">
@@ -234,16 +242,20 @@
         <h2 id="settingsModalTitle">User Settings</h2>
         <button class="modal-close-x" id="settingsModalCloseX" aria-label="Close">&times;</button>
       </div>
-      <form id="passwordForm" class="modal-form" novalidate>
+      <form id="userSettingsForm" class="modal-form" novalidate>
+        <div class="form-group">
+          <label for="settingsName">Name</label>
+          <input type="text" id="settingsName" required />
+        </div>
         <div class="form-group">
           <label for="settingsEmail">Email</label>
-          <input type="email" id="settingsEmail" readonly />
+          <input type="email" id="settingsEmail" required />
         </div>
         <div class="form-divider"><span>Reset password</span></div>
         <div class="form-group">
           <label for="settingsNewPassword">New password</label>
           <div class="password-field">
-            <input type="password" id="settingsNewPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
+            <input type="password" id="settingsNewPassword" minlength="8" maxlength="72" autocomplete="new-password" />
             <button type="button" class="password-toggle" data-password-toggle="settingsNewPassword" aria-label="Show password" title="Show password">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5.5 0-9.5 5.2-9.7 5.4a2.5 2.5 0 0 0 0 3.2C2.5 13.8 6.5 19 12 19s9.5-5.2 9.7-5.4a2.5 2.5 0 0 0 0-3.2C21.5 10.2 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
             </button>
@@ -252,16 +264,16 @@
         <div class="form-group">
           <label for="settingsConfirmPassword">Confirm new password</label>
           <div class="password-field">
-            <input type="password" id="settingsConfirmPassword" minlength="8" maxlength="72" autocomplete="new-password" required />
+            <input type="password" id="settingsConfirmPassword" minlength="8" maxlength="72" autocomplete="new-password" />
             <button type="button" class="password-toggle" data-password-toggle="settingsConfirmPassword" aria-label="Show password" title="Show password">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5.5 0-9.5 5.2-9.7 5.4a2.5 2.5 0 0 0 0 3.2C2.5 13.8 6.5 19 12 19s9.5-5.2 9.7-5.4a2.5 2.5 0 0 0 0-3.2C21.5 10.2 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
             </button>
           </div>
         </div>
-        <div id="settingsPasswordStatus" class="inline-status" aria-live="polite"></div>
+        <div id="settingsStatus" class="inline-status" aria-live="polite"></div>
         <div class="modal-footer">
           <button type="button" id="settingsModalCancelBtn" class="btn btn-secondary">Cancel</button>
-          <button type="button" id="settingsPasswordSaveBtn" class="btn btn-primary">Update password</button>
+          <button type="button" id="settingsSaveBtn" class="btn btn-primary">Save changes</button>
         </div>
       </form>
     </div>
@@ -293,8 +305,8 @@
 
   <!-- Environment config must load before the API and application. -->
   <script src="js/config.js?v=20260811-3"></script>
-  <script src="js/api.js?v=20260811-8"></script>
-  <script src="js/app.js?v=20260811-11"></script>
+  <script src="js/api.js?v=20260812-2"></script>
+  <script src="js/app.js?v=20260812-7"></script>
 
 </body>
 </html>

@@ -93,6 +93,7 @@ const els = {
   backToCatalogBtn: document.getElementById("backToCatalogBtn"),
   userTableBody:  document.getElementById("userTableBody"),
   userModalOverlay: document.getElementById("userModalOverlay"),
+  userModalTitle: document.getElementById("userModalTitle"),
   userModalCloseX: document.getElementById("userModalCloseX"),
   userModalCancelBtn: document.getElementById("userModalCancelBtn"),
   userModalSaveBtn: document.getElementById("userModalSaveBtn"),
@@ -101,19 +102,21 @@ const els = {
   userFieldId: document.getElementById("userFieldId"),
   userFieldName: document.getElementById("userFieldName"),
   userFieldEmail: document.getElementById("userFieldEmail"),
-  userFieldSuperUser: document.getElementById("userFieldSuperUser"),
+  userFieldRole: document.getElementById("userFieldRole"),
   userInitials: document.getElementById("userInitials"),
   userDisplayName: document.getElementById("userDisplayName"),
   userEmailDisplay: document.getElementById("userEmailDisplay"),
   passwordResetStatus: document.getElementById("passwordResetStatus"),
   settingsModalOverlay: document.getElementById("settingsModalOverlay"),
+  settingsModalTitle: document.getElementById("settingsModalTitle"),
   settingsModalCloseX: document.getElementById("settingsModalCloseX"),
   settingsModalCancelBtn: document.getElementById("settingsModalCancelBtn"),
-  settingsPasswordSaveBtn: document.getElementById("settingsPasswordSaveBtn"),
+  settingsSaveBtn: document.getElementById("settingsSaveBtn"),
+  settingsName: document.getElementById("settingsName"),
   settingsEmail: document.getElementById("settingsEmail"),
   settingsNewPassword: document.getElementById("settingsNewPassword"),
   settingsConfirmPassword: document.getElementById("settingsConfirmPassword"),
-  settingsPasswordStatus: document.getElementById("settingsPasswordStatus"),
+  settingsStatus: document.getElementById("settingsStatus"),
 
   modalOverlay:   document.getElementById("modalOverlay"),
   modalTitle:     document.getElementById("modalTitle"),
@@ -204,9 +207,9 @@ async function checkAuthAndUpdateUI() {
  */
 function updateAuthUI() {
   const loggedIn = !!state.currentUser;
-  const isSuperUser = loggedIn && state.currentUser.super_user === true;
-  els.addSongBtn.style.display  = isSuperUser ? "inline-flex" : "none";
-  els.userAdminBtn.style.display = isSuperUser ? "inline-flex" : "none";
+  const isAdmin = loggedIn && state.currentUser.role === "Admin";
+  els.addSongBtn.style.display  = isAdmin ? "inline-flex" : "none";
+  els.userAdminBtn.style.display = isAdmin ? "inline-flex" : "none";
   els.userSettingsBtn.style.display = loggedIn ? "inline-flex" : "none";
   els.authIconBtn.title = loggedIn ? "Log out" : "Log in";
   els.authIconBtn.setAttribute("aria-label", loggedIn ? "Log out" : "Log in");
@@ -248,6 +251,12 @@ function hideLoginScreen() {
   els.loginPassword.value = "";
 }
 
+function resetCatalogSearch() {
+  state.searchQuery = "";
+  state.currentPage = 1;
+  els.searchInput.value = "";
+}
+
 async function handleLogin(event) {
   event.preventDefault();
   const email = els.loginEmail.value.trim();
@@ -262,6 +271,7 @@ async function handleLogin(event) {
   els.loginStatus.textContent = "";
   try {
     state.currentUser = await api.login(email, password);
+    resetCatalogSearch();
     updateAuthUI();
     hideLoginScreen();
     await loadSongs();
@@ -367,6 +377,7 @@ async function handleEmailVerificationFromUrl() {
   els.loginStatus.textContent = "Confirming your email address…";
   try {
     state.currentUser = await api.verifyEmail(token);
+    resetCatalogSearch();
     url.searchParams.delete("verify_token");
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     updateAuthUI();
@@ -386,7 +397,7 @@ async function handleEmailVerificationFromUrl() {
 }
 
 async function openUserAdministration() {
-  if (!state.currentUser || state.currentUser.super_user !== true) return;
+  if (!state.currentUser || state.currentUser.role !== "Admin") return;
   state.users = await api.getUsers();
   renderUsers();
   els.catalogView.style.display = "none";
@@ -397,9 +408,9 @@ function renderUsers() {
   els.userTableBody.innerHTML = "";
   state.users.forEach(user => {
     const row = document.createElement("tr");
-    const accessLabel = user.super_user ? "Yes" : "No";
-    const accessClass = user.super_user ? "access-yes" : "access-no";
-    row.innerHTML = `<td><strong>${escapeHtml(user.name || user.email)}</strong><span class="table-secondary">${escapeHtml(user.email)}</span></td><td><span class="access-badge ${accessClass}">${accessLabel}</span></td><td><span class="status-dot"></span>${escapeHtml(user.status || "Active")}</td><td>${escapeHtml(user.lastLogin || "Never")}</td>`;
+    const role = user.role || "Basic";
+    const roleClass = `role-${role.toLowerCase()}`;
+    row.innerHTML = `<td><strong>${escapeHtml(user.name || "")}</strong></td><td>${escapeHtml(user.email)}</td><td><span class="role-badge ${roleClass}">${escapeHtml(role)}</span></td><td>${escapeHtml(user.lastLogin || "Never")}</td>`;
     row.addEventListener("click", () => openUserModal(user.id));
     els.userTableBody.appendChild(row);
   });
@@ -409,10 +420,11 @@ function openUserModal(userId) {
   const user = state.users.find(item => String(item.id) === String(userId));
   if (!user) return;
   state.selectedUser = user;
+  els.userModalTitle.textContent = `[${user.id}] User Information`;
   els.userFieldId.value = user.id;
   els.userFieldName.value = user.name;
   els.userFieldEmail.value = user.email;
-  els.userFieldSuperUser.checked = user.super_user === true;
+  els.userFieldRole.value = user.role || "Basic";
   els.userDisplayName.textContent = user.name;
   els.userEmailDisplay.textContent = user.email;
   els.userInitials.textContent = user.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
@@ -440,7 +452,7 @@ async function saveUser() {
     const updatedUser = await api.updateUser(els.userFieldId.value, {
       name,
       email,
-      super_user: els.userFieldSuperUser.checked,
+      role: els.userFieldRole.value,
     });
     if (String(updatedUser.id) === String(state.currentUser.id)) {
       state.currentUser = { ...state.currentUser, ...updatedUser };
@@ -449,7 +461,7 @@ async function saveUser() {
     state.users = await api.getUsers();
     renderUsers();
     closeUserModal();
-    if (state.currentUser.super_user !== true) {
+    if (state.currentUser.role !== "Admin") {
       els.userAdminView.style.display = "none";
       els.catalogView.style.display = "block";
     }
@@ -468,11 +480,11 @@ async function resetSelectedUserPassword() {
   if (!state.selectedUser) return;
   const targetUser = state.selectedUser;
   closeUserModal();
-  openPasswordSettings(targetUser);
+  openUserSettings(targetUser);
 }
 
 async function deleteSelectedUser() {
-  if (!state.selectedUser || state.currentUser?.super_user !== true) return;
+  if (!state.selectedUser || state.currentUser?.role !== "Admin") return;
   const targetUser = state.selectedUser;
   if (String(targetUser.id) === String(state.currentUser.id)) return;
 
@@ -497,57 +509,93 @@ async function deleteSelectedUser() {
   }
 }
 
-function openPasswordSettings(user = state.currentUser) {
+function openUserSettings(user = state.currentUser) {
   if (!user) return;
   state.passwordTargetUser = user;
+  const isCurrentUser = String(user.id) === String(state.currentUser?.id);
+  els.settingsModalTitle.textContent = isCurrentUser ? "User Settings" : "Reset User Password";
+  els.settingsName.value = user.name || "";
   els.settingsEmail.value = user.email || "";
+  els.settingsName.readOnly = !isCurrentUser;
+  els.settingsEmail.readOnly = !isCurrentUser;
   els.settingsNewPassword.value = "";
   els.settingsConfirmPassword.value = "";
-  els.settingsPasswordStatus.textContent = "";
-  els.settingsPasswordStatus.classList.remove("is-error");
+  els.settingsStatus.textContent = "";
+  els.settingsStatus.classList.remove("is-error");
+  els.settingsSaveBtn.textContent = isCurrentUser ? "Save changes" : "Update password";
   els.settingsModalOverlay.style.display = "flex";
-  setTimeout(() => els.settingsNewPassword.focus(), 50);
+  setTimeout(() => (isCurrentUser ? els.settingsName : els.settingsNewPassword).focus(), 50);
 }
 
-function closePasswordSettings() {
+function closeUserSettings() {
   state.passwordTargetUser = null;
   els.settingsModalOverlay.style.display = "none";
   els.settingsNewPassword.value = "";
   els.settingsConfirmPassword.value = "";
-  els.settingsPasswordStatus.textContent = "";
+  els.settingsStatus.textContent = "";
 }
 
-async function saveNewPassword() {
+async function saveUserSettings() {
+  if (!state.passwordTargetUser) return;
+  const isCurrentUser = String(state.passwordTargetUser.id) === String(state.currentUser?.id);
+  const name = els.settingsName.value.trim();
+  const email = els.settingsEmail.value.trim();
   const password = els.settingsNewPassword.value;
   const confirmation = els.settingsConfirmPassword.value;
-  els.settingsPasswordStatus.classList.remove("is-error");
+  const changingPassword = password.length > 0 || confirmation.length > 0;
+  els.settingsStatus.classList.remove("is-error");
 
-  if (password.length < 8 || password.length > 72) {
-    els.settingsPasswordStatus.textContent = "Password must be between 8 and 72 characters.";
-    els.settingsPasswordStatus.classList.add("is-error");
+  if (isCurrentUser && (!name || !email)) {
+    els.settingsStatus.textContent = "Name and email are required.";
+    els.settingsStatus.classList.add("is-error");
     return;
   }
-  if (password !== confirmation) {
-    els.settingsPasswordStatus.textContent = "Passwords do not match.";
-    els.settingsPasswordStatus.classList.add("is-error");
+  if (!isCurrentUser && !changingPassword) {
+    els.settingsStatus.textContent = "Enter a new password.";
+    els.settingsStatus.classList.add("is-error");
     return;
   }
-  if (!state.passwordTargetUser) return;
+  if (changingPassword && (password.length < 8 || password.length > 72)) {
+    els.settingsStatus.textContent = "Password must be between 8 and 72 characters.";
+    els.settingsStatus.classList.add("is-error");
+    return;
+  }
+  if (changingPassword && password !== confirmation) {
+    els.settingsStatus.textContent = "Passwords do not match.";
+    els.settingsStatus.classList.add("is-error");
+    return;
+  }
 
-  els.settingsPasswordSaveBtn.disabled = true;
-  els.settingsPasswordSaveBtn.textContent = "Updating…";
+  const defaultButtonText = isCurrentUser ? "Save changes" : "Update password";
+  els.settingsSaveBtn.disabled = true;
+  els.settingsSaveBtn.textContent = "Saving…";
   try {
-    const result = await api.resetUserPassword(state.passwordTargetUser.id, password);
+    if (isCurrentUser) {
+      const updatedUser = await api.updateCurrentUser({ name, email });
+      state.currentUser = { ...state.currentUser, ...updatedUser };
+      state.users = state.users.map(user => String(user.id) === String(updatedUser.id)
+        ? { ...user, ...updatedUser }
+        : user);
+      updateAuthUI();
+      renderUsers();
+    }
+    if (changingPassword) {
+      await api.resetUserPassword(state.passwordTargetUser.id, password);
+    }
     els.settingsNewPassword.value = "";
     els.settingsConfirmPassword.value = "";
-    els.settingsPasswordStatus.textContent = result.message || "Password updated.";
+    els.settingsStatus.textContent = changingPassword
+      ? (isCurrentUser ? "Settings and password updated." : "Password updated.")
+      : "Settings updated.";
   } catch (error) {
-    console.error("Password update failed:", error);
-    els.settingsPasswordStatus.textContent = "Could not update the password. Please try again.";
-    els.settingsPasswordStatus.classList.add("is-error");
+    console.error("User settings update failed:", error);
+    els.settingsStatus.textContent = error.status === 409
+      ? (error.detail || "That name or email is already in use.")
+      : (error.detail || "Could not update the user settings. Please try again.");
+    els.settingsStatus.classList.add("is-error");
   } finally {
-    els.settingsPasswordSaveBtn.disabled = false;
-    els.settingsPasswordSaveBtn.textContent = "Update password";
+    els.settingsSaveBtn.disabled = false;
+    els.settingsSaveBtn.textContent = defaultButtonText;
   }
 }
 
@@ -708,7 +756,7 @@ function renderSongTable() {
   pageSongs.forEach(song => {
     const tr = document.createElement("tr");
     tr.dataset.songId = song.id;
-    const canEditSong = state.currentUser?.super_user === true;
+    const canEditSong = state.currentUser?.role === "Admin";
     if (canEditSong) {
       tr.classList.add("is-clickable");
       tr.tabIndex = 0;
@@ -716,15 +764,15 @@ function renderSongTable() {
       tr.setAttribute("aria-label", `Edit ${song.artist} – ${song.song}`);
     }
 
-    // Artist cell — add overplayed badge when applicable.
-    const overplayedBadge = song.overplayed === "Y"
-      ? `<span class="badge-overplayed" title="Overplayed">overplayed</span>`
-      : "";
+    const overplayedValue = song.overplayed === "Y"
+      ? `<span class="badge-overplayed">Yes</span>`
+      : "No";
 
     tr.innerHTML = `
-      <td>${escapeHtml(song.artist)}${overplayedBadge}</td>
+      <td>${escapeHtml(song.artist)}</td>
       <td>${escapeHtml(song.song)}</td>
       <td>${escapeHtml(song.album || "")}</td>
+      <td class="overplayed-column">${overplayedValue}</td>
     `;
 
     if (canEditSong) {
@@ -834,7 +882,7 @@ function getPageNumbers(current, total) {
  * openCreateModal — Opens the modal for creating a new song.
  */
 function openCreateModal() {
-  if (state.currentUser?.super_user !== true) return;
+  if (state.currentUser?.role !== "Admin") return;
   state.modalMode = "create";
   state.modalSong = null;
 
@@ -857,14 +905,14 @@ function openCreateModal() {
  * @param {string|number} songId - The id of the song to open.
  */
 function openViewOrEditModal(songId) {
-  if (state.currentUser?.super_user !== true) return;
+  if (state.currentUser?.role !== "Admin") return;
   const song = state.songs.find(s => String(s.id) === String(songId));
   if (!song) return;
 
   state.modalMode = "edit";
   state.modalSong = song;
 
-  els.modalTitle.textContent = `Edit ${song.artist} Song`;
+  els.modalTitle.textContent = `[${song.id}] Edit ${song.artist} Song`;
 
   // Populate form fields.
   els.fieldId.value              = song.id;
@@ -922,7 +970,7 @@ function setModalFieldsReadOnly(readOnly) {
  * Builds a song object from the form, calls the API, reloads songs.
  */
 async function handleSaveSong() {
-  if (state.currentUser?.super_user !== true) return;
+  if (state.currentUser?.role !== "Admin") return;
   const artist = els.fieldArtist.value.trim();
   const song   = els.fieldSong.value.trim();
 
@@ -977,7 +1025,7 @@ async function handleSaveSong() {
  * @param {string|number} songId - The song id to delete.
  */
 async function handleDeleteSong(songId) {
-  if (state.currentUser?.super_user !== true) return;
+  if (state.currentUser?.role !== "Admin") return;
   const song = state.songs.find(s => String(s.id) === String(songId));
   const name = song ? `"${song.artist} – ${song.song}"` : "this song";
 
@@ -1101,7 +1149,7 @@ function wireEvents() {
     els.userAdminView.style.display = "none";
     els.catalogView.style.display = "block";
   });
-  els.userSettingsBtn.addEventListener("click", () => openPasswordSettings());
+  els.userSettingsBtn.addEventListener("click", () => openUserSettings());
   els.authIconBtn.addEventListener("click", async () => {
     if (state.currentUser) {
       await api.logout();
@@ -1109,9 +1157,10 @@ function wireEvents() {
       els.userAdminView.style.display = "none";
       els.catalogView.style.display = "block";
       closeUserModal();
-      closePasswordSettings();
+      closeUserSettings();
       state.songs = [];
       state.filteredSongs = [];
+      resetCatalogSearch();
       renderApp();
       showLoginScreen();
     } else {
@@ -1128,10 +1177,10 @@ function wireEvents() {
   els.userModalDeleteBtn.addEventListener("click", deleteSelectedUser);
   els.resetPasswordBtn.addEventListener("click", resetSelectedUserPassword);
   els.userModalOverlay.addEventListener("click", event => { if (event.target === els.userModalOverlay) closeUserModal(); });
-  els.settingsModalCloseX.addEventListener("click", closePasswordSettings);
-  els.settingsModalCancelBtn.addEventListener("click", closePasswordSettings);
-  els.settingsPasswordSaveBtn.addEventListener("click", saveNewPassword);
-  els.settingsModalOverlay.addEventListener("click", event => { if (event.target === els.settingsModalOverlay) closePasswordSettings(); });
+  els.settingsModalCloseX.addEventListener("click", closeUserSettings);
+  els.settingsModalCancelBtn.addEventListener("click", closeUserSettings);
+  els.settingsSaveBtn.addEventListener("click", saveUserSettings);
+  els.settingsModalOverlay.addEventListener("click", event => { if (event.target === els.settingsModalOverlay) closeUserSettings(); });
 
   // Modal — Save button.
   els.modalSaveBtn.addEventListener("click", handleSaveSong);
@@ -1153,7 +1202,7 @@ function wireEvents() {
 
   // Close modal with Escape key.
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && els.settingsModalOverlay.style.display !== "none") closePasswordSettings();
+    if (e.key === "Escape" && els.settingsModalOverlay.style.display !== "none") closeUserSettings();
     else if (e.key === "Escape" && els.userModalOverlay.style.display !== "none") closeUserModal();
     else if (e.key === "Escape" && state.modalMode !== null) closeModal();
   });
