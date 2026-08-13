@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sam's Rock Song Catalog</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260813-2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260813-5" />
 </head>
 <body>
 
@@ -99,7 +99,50 @@
         <span class="admin-card-icon" aria-hidden="true">☷</span>
         <span><strong>Lists</strong><small>Manage dropdown lists and values</small></span>
       </button>
+      <button id="manageAuditBtn" class="admin-card" type="button">
+        <span class="admin-card-icon" aria-hidden="true">⌕</span>
+        <span><strong>Audit</strong><small>Search daily create and update activity</small></span>
+      </button>
     </div>
+  </main>
+
+  <main class="container" id="auditAdminView" style="display:none;">
+    <div class="view-heading">
+      <div>
+        <p class="eyebrow">Administration</p>
+        <h2>Audit</h2>
+        <p class="view-subtitle">Search record activity for one calendar day.</p>
+      </div>
+      <button id="auditBackToAdminBtn" class="btn btn-secondary" type="button">← Administration</button>
+    </div>
+    <form id="auditSearchForm" class="audit-search" novalidate>
+      <div class="form-group">
+        <label for="auditDate">Date</label>
+        <input type="date" id="auditDate" required />
+      </div>
+      <div class="form-group">
+        <label for="auditUserName">User name</label>
+        <input type="text" id="auditUserName" maxlength="120" placeholder="Any user" />
+      </div>
+      <div class="form-group">
+        <label for="auditUserEmail">User email</label>
+        <input type="email" id="auditUserEmail" maxlength="254" placeholder="Any email" />
+      </div>
+      <div class="form-group">
+        <label for="auditTableName">Table</label>
+        <select id="auditTableName"><option value="">All tables</option></select>
+      </div>
+      <button id="auditSearchBtn" class="btn btn-primary" type="submit">Search</button>
+    </form>
+    <div id="auditStatus" class="inline-status audit-status" aria-live="polite"></div>
+    <div class="table-wrapper">
+      <table id="auditTable" class="song-table audit-table">
+        <thead><tr><th>Updated</th><th>User</th><th>Table</th><th>Record</th><th>Activity</th></tr></thead>
+        <tbody id="auditTableBody"></tbody>
+      </table>
+      <div id="auditEmptyState" class="empty-state" style="display:none;">No activity matched this search.</div>
+    </div>
+    <nav class="pagination" id="auditPagination" aria-label="Audit pagination"></nav>
   </main>
 
   <main class="container" id="userAdminView" style="display:none;">
@@ -434,9 +477,9 @@
   </div>
 
   <!-- Environment config must load before the API and application. -->
-  <script src="js/config.js?v=20260813-4"></script>
-  <script src="js/api.js?v=20260813-4"></script>
-  <script src="js/app.js?v=20260813-4"></script>
+  <script src="js/config.js?v=20260813-5"></script>
+  <script src="js/api.js?v=20260813-5"></script>
+  <script src="js/app.js?v=20260813-5"></script>
 
 </body>
 </html>

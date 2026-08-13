@@ -89,15 +89,20 @@ let _mockUsers = [
 
 let _mockLookupLists = [
   { id: "1", list_name: "Role", description: "Application user roles", sort_mode: "Alphabetical", default_item_value: "Basic", active: true },
+  { id: "2", list_name: "DBTables", description: "Database tables included in the lightweight audit search", sort_mode: "Alphabetical", default_item_value: null, active: true },
 ];
 
 let _mockLookupListItems = [
   { list_id: "1", list_item_value: "Admin", list_item_text: "Admin", sequence: 0, active: true },
   { list_id: "1", list_item_value: "Basic", list_item_text: "Basic", sequence: 0, active: true },
   { list_id: "1", list_item_value: "Pending", list_item_text: "Pending", sequence: 0, active: true },
+  { list_id: "2", list_item_value: "lookup_list_items", list_item_text: "lookup_list_items", sequence: 0, active: true },
+  { list_id: "2", list_item_value: "lookup_lists", list_item_text: "lookup_lists", sequence: 0, active: true },
+  { list_id: "2", list_item_value: "songs", list_item_text: "songs", sequence: 0, active: true },
+  { list_id: "2", list_item_value: "users", list_item_text: "users", sequence: 0, active: true },
 ];
 
-let _nextLookupListId = 2;
+let _nextLookupListId = 3;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -415,6 +420,32 @@ async function deactivateLookupListItem(listId, itemValue) {
   return updateLookupListItem(listId, itemValue, { ...item, active: false });
 }
 
+async function searchAuditEntries(filters) {
+  const params = new URLSearchParams({ date: filters.date, page: String(filters.page || 1) });
+  if (filters.userName) params.set("user_name", filters.userName);
+  if (filters.userEmail) params.set("user_email", filters.userEmail);
+  if (filters.tableName) params.set("table_name", filters.tableName);
+  if (!USE_MOCK_API) return apiRequest(`/admin/audit?${params.toString()}`);
+
+  await _delay();
+  const entries = [
+    { activity_time: `${filters.date}T15:42:00Z`, user_id: 1, user_name: "Sam Otto", user_email: "sam@overturegroup.com", table_name: "songs", record_id: "1", activity: "Updated" },
+    { activity_time: `${filters.date}T14:10:00Z`, user_id: 1, user_name: "Sam Otto", user_email: "sam@overturegroup.com", table_name: "lookup_list_items", record_id: "1 / Basic", activity: "Created" },
+  ].filter(entry =>
+    (!filters.userName || entry.user_name.toLowerCase().includes(filters.userName.toLowerCase()))
+    && (!filters.userEmail || entry.user_email.toLowerCase().includes(filters.userEmail.toLowerCase()))
+    && (!filters.tableName || entry.table_name === filters.tableName));
+  return {
+    date: filters.date,
+    timezone: "America/Chicago",
+    page: filters.page || 1,
+    page_size: 100,
+    total: entries.length,
+    total_pages: entries.length ? 1 : 0,
+    items: entries,
+  };
+}
+
 // ─── Song CRUD Functions ──────────────────────────────────────────────────────
 
 /**
@@ -535,6 +566,7 @@ window.RockSongsApi = {
   createLookupListItem,
   updateLookupListItem,
   deactivateLookupListItem,
+  searchAuditEntries,
   getSongs,
   createSong,
   updateSong,

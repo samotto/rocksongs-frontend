@@ -49,6 +49,7 @@ const state = {
   lookupListItems: [],
   selectedLookupListItem: null,
   lookupListCache: new Map(),
+  auditResults: null,
 
   /**
    * Which modal mode is active: "create" | "edit" | "view" | null
@@ -102,6 +103,7 @@ const els = {
   backToCatalogBtn: document.getElementById("backToCatalogBtn"),
   manageUsersBtn: document.getElementById("manageUsersBtn"),
   manageListsBtn: document.getElementById("manageListsBtn"),
+  manageAuditBtn: document.getElementById("manageAuditBtn"),
   usersBackToAdminBtn: document.getElementById("usersBackToAdminBtn"),
   userTableBody:  document.getElementById("userTableBody"),
   listAdminView: document.getElementById("listAdminView"),
@@ -115,6 +117,19 @@ const els = {
   itemsBackToListsBtn: document.getElementById("itemsBackToListsBtn"),
   lookupListItemTableBody: document.getElementById("lookupListItemTableBody"),
   lookupListItemEmptyState: document.getElementById("lookupListItemEmptyState"),
+  auditAdminView: document.getElementById("auditAdminView"),
+  auditBackToAdminBtn: document.getElementById("auditBackToAdminBtn"),
+  auditSearchForm: document.getElementById("auditSearchForm"),
+  auditDate: document.getElementById("auditDate"),
+  auditUserName: document.getElementById("auditUserName"),
+  auditUserEmail: document.getElementById("auditUserEmail"),
+  auditTableName: document.getElementById("auditTableName"),
+  auditSearchBtn: document.getElementById("auditSearchBtn"),
+  auditStatus: document.getElementById("auditStatus"),
+  auditTable: document.getElementById("auditTable"),
+  auditTableBody: document.getElementById("auditTableBody"),
+  auditEmptyState: document.getElementById("auditEmptyState"),
+  auditPagination: document.getElementById("auditPagination"),
   userModalOverlay: document.getElementById("userModalOverlay"),
   userModalTitle: document.getElementById("userModalTitle"),
   userModalCloseX: document.getElementById("userModalCloseX"),
@@ -306,6 +321,14 @@ function resetCatalogSearch() {
   state.searchQuery = "";
   state.currentPage = 1;
   els.searchInput.value = "";
+  state.auditResults = null;
+  els.auditDate.value = "";
+  els.auditUserName.value = "";
+  els.auditUserEmail.value = "";
+  els.auditTableName.value = "";
+  els.auditStatus.textContent = "";
+  els.auditTableBody.innerHTML = "";
+  els.auditPagination.innerHTML = "";
 }
 
 async function handleLogin(event) {
@@ -453,6 +476,7 @@ const applicationViews = () => [
   els.userAdminView,
   els.listAdminView,
   els.listItemsView,
+  els.auditAdminView,
 ];
 
 function showApplicationView(view) {
@@ -735,6 +759,125 @@ async function saveUserSettings() {
     els.settingsSaveBtn.disabled = false;
     els.settingsSaveBtn.textContent = defaultButtonText;
   }
+}
+
+// ─── Lightweight Audit Administration ──────────────────────────────────────
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+async function openAuditAdministration() {
+  if (state.currentUser?.role !== "Admin") return;
+  els.manageAuditBtn.disabled = true;
+  els.auditStatus.textContent = "";
+  if (!els.auditDate.value) els.auditDate.value = localDateValue();
+  try {
+    await populateLookupSelect(els.auditTableName, "DBTables", {
+      selectedValue: els.auditTableName.value,
+      placeholder: "All tables",
+      useDefault: false,
+    });
+    showApplicationView(els.auditAdminView);
+    await searchAuditEntries(1);
+  } catch (error) {
+    console.error("Failed to open audit administration:", error);
+    els.auditStatus.textContent = error.detail || "Could not load the audit search.";
+    els.auditStatus.classList.add("is-error");
+    showApplicationView(els.auditAdminView);
+  } finally {
+    els.manageAuditBtn.disabled = false;
+  }
+}
+
+async function searchAuditEntries(page = 1) {
+  if (!els.auditDate.value) {
+    els.auditStatus.textContent = "Select a date.";
+    els.auditStatus.classList.add("is-error");
+    return;
+  }
+  els.auditSearchBtn.disabled = true;
+  els.auditSearchBtn.textContent = "Searching…";
+  els.auditStatus.textContent = "";
+  els.auditStatus.classList.remove("is-error");
+  try {
+    state.auditResults = await api.searchAuditEntries({
+      date: els.auditDate.value,
+      userName: els.auditUserName.value.trim(),
+      userEmail: els.auditUserEmail.value.trim(),
+      tableName: els.auditTableName.value,
+      page,
+    });
+    renderAuditResults();
+  } catch (error) {
+    console.error("Audit search failed:", error);
+    state.auditResults = null;
+    renderAuditResults();
+    els.auditStatus.textContent = error.detail || "Could not search audit activity.";
+    els.auditStatus.classList.add("is-error");
+  } finally {
+    els.auditSearchBtn.disabled = false;
+    els.auditSearchBtn.textContent = "Search";
+  }
+}
+
+function formatAuditActivityTime(value, timezoneName) {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return String(value || "");
+  return timestamp.toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: timezoneName || undefined,
+  });
+}
+
+function renderAuditResults() {
+  const result = state.auditResults;
+  const items = result?.items || [];
+  els.auditTableBody.innerHTML = "";
+  els.auditTable.style.display = items.length ? "" : "none";
+  els.auditEmptyState.style.display = items.length ? "none" : "block";
+  if (result) {
+    els.auditStatus.textContent = `${result.total} ${result.total === 1 ? "entry" : "entries"} · ${result.timezone}`;
+  }
+  items.forEach(entry => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${escapeHtml(formatAuditActivityTime(entry.activity_time, result.timezone))}</td>
+      <td><strong>${escapeHtml(entry.user_name)}</strong><small class="audit-user-email">${escapeHtml(entry.user_email || "")}</small></td>
+      <td><code>${escapeHtml(entry.table_name)}</code></td>
+      <td>${escapeHtml(entry.record_id)}</td>
+      <td><span class="audit-activity audit-activity--${entry.activity.toLowerCase()}">${escapeHtml(entry.activity)}</span></td>`;
+    els.auditTableBody.appendChild(row);
+  });
+  renderAuditPagination();
+}
+
+function renderAuditPagination() {
+  const result = state.auditResults;
+  els.auditPagination.innerHTML = "";
+  if (!result || result.total_pages <= 1) return;
+  els.auditPagination.appendChild(makePaginationBtn("← Prev", result.page <= 1, () => {
+    searchAuditEntries(result.page - 1);
+  }));
+  getPageNumbers(result.page, result.total_pages).forEach(page => {
+    if (page === "...") {
+      const ellipsis = document.createElement("span");
+      ellipsis.className = "page-btn pagination-ellipsis";
+      ellipsis.textContent = "…";
+      els.auditPagination.appendChild(ellipsis);
+      return;
+    }
+    const button = makePaginationBtn(String(page), false, () => searchAuditEntries(page));
+    if (page === result.page) button.classList.add("active");
+    els.auditPagination.appendChild(button);
+  });
+  els.auditPagination.appendChild(makePaginationBtn("Next →", result.page >= result.total_pages, () => {
+    searchAuditEntries(result.page + 1);
+  }));
 }
 
 // ─── Lookup List Administration ─────────────────────────────────────────────
@@ -1572,9 +1715,15 @@ function wireEvents() {
   els.backToCatalogBtn.addEventListener("click", () => showApplicationView(els.catalogView));
   els.manageUsersBtn.addEventListener("click", openUserAdministration);
   els.manageListsBtn.addEventListener("click", openListAdministration);
+  els.manageAuditBtn.addEventListener("click", openAuditAdministration);
   els.usersBackToAdminBtn.addEventListener("click", openAdministration);
   els.listsBackToAdminBtn.addEventListener("click", openAdministration);
   els.itemsBackToListsBtn.addEventListener("click", openListAdministration);
+  els.auditBackToAdminBtn.addEventListener("click", openAdministration);
+  els.auditSearchForm.addEventListener("submit", event => {
+    event.preventDefault();
+    searchAuditEntries(1);
+  });
   els.newListItemBtn.addEventListener("click", () => openLookupListItemModal());
   els.userSettingsBtn.addEventListener("click", () => openUserSettings());
   els.authIconBtn.addEventListener("click", async () => {

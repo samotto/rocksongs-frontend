@@ -71,7 +71,7 @@ body {
 .eyebrow { color: #5c6bc0; text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; font-weight: 800; margin-bottom: 4px; }
 .view-subtitle { color: #666; margin-top: 5px; }
 .view-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.admin-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.admin-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .admin-card { display: flex; align-items: center; gap: 16px; min-height: 112px; padding: 20px; border: 1px solid #d8dbea; border-radius: 10px; background: #fff; color: #222; text-align: left; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.08); transition: border-color .15s, box-shadow .15s, transform .1s; }
 .admin-card:hover { border-color: #5c6bc0; box-shadow: 0 5px 18px rgba(63,81,181,.15); }
 .admin-card:active { transform: scale(.99); }
@@ -79,6 +79,18 @@ body {
 .admin-card > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .admin-card strong { color: #1a1a2e; font-size: 1.08rem; }
 .admin-card small { color: #666; font-size: .86rem; line-height: 1.35; }
+.audit-search { display: grid; grid-template-columns: 150px minmax(140px, 1fr) minmax(180px, 1.2fr) minmax(150px, .8fr) auto; align-items: end; gap: 12px; margin-bottom: 10px; padding: 14px; border: 1px solid #d8dbea; border-radius: 8px; background: #fff; }
+.audit-search .btn { justify-content: center; }
+.audit-status { margin: 0 0 8px; color: #666; }
+.audit-table { min-width: 720px; }
+.audit-table th, .audit-table td { padding: 8px 10px; font-size: .82rem; }
+.audit-table th:first-child { width: 145px; }
+.audit-table th:nth-child(4), .audit-table th:last-child { width: 92px; }
+.audit-user-email { display: block; margin-top: 2px; color: #777; font-size: .72rem; font-weight: 400; }
+.audit-activity { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: .7rem; font-weight: 700; }
+.audit-activity--created { color: #24633a; background: #dff3e5; }
+.audit-activity--updated { color: #4a4d86; background: #e8e9fa; }
+.pagination-ellipsis { cursor: default; opacity: .5; display: inline-flex; align-items: center; justify-content: center; }
 .user-table th:nth-child(3) { width: 120px; }
 .user-table th:last-child { width: 160px; }
 .role-badge { display: inline-block; min-width: 62px; text-align: center; border-radius: 999px; padding: 3px 9px; font-size: .75rem; font-weight: 700; }
@@ -423,7 +435,7 @@ body {
   margin-top: 5px;
 }
 
-.form-group input[type="email"], .form-group input[type="password"], .form-group input[type="number"], .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: .93rem; background: #fff; }
+.form-group input[type="email"], .form-group input[type="password"], .form-group input[type="number"], .form-group input[type="date"], .form-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: .93rem; background: #fff; }
 .form-group input:focus, .form-group select:focus { border-color: #5c6bc0; outline: none; box-shadow: 0 0 0 3px rgba(92,107,192,.12); }
 .form-group input:read-only { background: #f5f5f5; color: #555; }
 .user-modal-box { max-width: 520px; }
@@ -607,6 +619,7 @@ body {
   .form-group input[type="email"],
   .form-group input[type="password"],
   .form-group input[type="number"],
+  .form-group input[type="date"],
   .form-group select {
     font-size: 16px;
   }
@@ -664,6 +677,8 @@ body {
   .admin-card-grid { grid-template-columns: 1fr; }
   .admin-card { min-height: 96px; padding: 16px; }
   .admin-data-table { min-width: 640px; }
+  .audit-search { grid-template-columns: 1fr; }
+  .audit-search .btn { width: 100%; }
   .user-details-grid { grid-template-columns: 1fr; }
   .record-audit-grid { grid-template-columns: 1fr; }
   .user-email-field { grid-column: auto; }
