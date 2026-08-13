@@ -44,6 +44,11 @@ const state = {
   users: [],
   selectedUser: null,
   passwordTargetUser: null,
+  lookupLists: [],
+  selectedLookupList: null,
+  lookupListItems: [],
+  selectedLookupListItem: null,
+  lookupListCache: new Map(),
 
   /**
    * Which modal mode is active: "create" | "edit" | "view" | null
@@ -88,13 +93,28 @@ const els = {
   signupSubmitBtn: document.getElementById("signupSubmitBtn"),
 
   addSongBtn:     document.getElementById("addSongBtn"),
-  userAdminBtn:   document.getElementById("userAdminBtn"),
+  adminBtn:       document.getElementById("adminBtn"),
   userSettingsBtn: document.getElementById("userSettingsBtn"),
   authIconBtn:    document.getElementById("authIconBtn"),
   catalogView:    document.getElementById("catalogView"),
+  adminView:      document.getElementById("adminView"),
   userAdminView:  document.getElementById("userAdminView"),
   backToCatalogBtn: document.getElementById("backToCatalogBtn"),
+  manageUsersBtn: document.getElementById("manageUsersBtn"),
+  manageListsBtn: document.getElementById("manageListsBtn"),
+  usersBackToAdminBtn: document.getElementById("usersBackToAdminBtn"),
   userTableBody:  document.getElementById("userTableBody"),
+  listAdminView: document.getElementById("listAdminView"),
+  listsBackToAdminBtn: document.getElementById("listsBackToAdminBtn"),
+  lookupListTableBody: document.getElementById("lookupListTableBody"),
+  lookupListEmptyState: document.getElementById("lookupListEmptyState"),
+  listItemsView: document.getElementById("listItemsView"),
+  listItemsTitle: document.getElementById("listItemsTitle"),
+  listItemsSubtitle: document.getElementById("listItemsSubtitle"),
+  newListItemBtn: document.getElementById("newListItemBtn"),
+  itemsBackToListsBtn: document.getElementById("itemsBackToListsBtn"),
+  lookupListItemTableBody: document.getElementById("lookupListItemTableBody"),
+  lookupListItemEmptyState: document.getElementById("lookupListItemEmptyState"),
   userModalOverlay: document.getElementById("userModalOverlay"),
   userModalTitle: document.getElementById("userModalTitle"),
   userModalCloseX: document.getElementById("userModalCloseX"),
@@ -120,6 +140,29 @@ const els = {
   settingsNewPassword: document.getElementById("settingsNewPassword"),
   settingsConfirmPassword: document.getElementById("settingsConfirmPassword"),
   settingsStatus: document.getElementById("settingsStatus"),
+  lookupListModalOverlay: document.getElementById("lookupListModalOverlay"),
+  lookupListModalTitle: document.getElementById("lookupListModalTitle"),
+  lookupListModalCloseX: document.getElementById("lookupListModalCloseX"),
+  lookupListCancelBtn: document.getElementById("lookupListCancelBtn"),
+  lookupListSaveBtn: document.getElementById("lookupListSaveBtn"),
+  lookupListId: document.getElementById("lookupListId"),
+  lookupListName: document.getElementById("lookupListName"),
+  lookupListDescription: document.getElementById("lookupListDescription"),
+  lookupListSortMode: document.getElementById("lookupListSortMode"),
+  lookupListDefaultValue: document.getElementById("lookupListDefaultValue"),
+  lookupListDefaultHelp: document.getElementById("lookupListDefaultHelp"),
+  lookupListStatus: document.getElementById("lookupListStatus"),
+  lookupListItemModalOverlay: document.getElementById("lookupListItemModalOverlay"),
+  lookupListItemModalTitle: document.getElementById("lookupListItemModalTitle"),
+  lookupListItemModalCloseX: document.getElementById("lookupListItemModalCloseX"),
+  lookupListItemCancelBtn: document.getElementById("lookupListItemCancelBtn"),
+  lookupListItemSaveBtn: document.getElementById("lookupListItemSaveBtn"),
+  deactivateListItemBtn: document.getElementById("deactivateListItemBtn"),
+  lookupListItemValue: document.getElementById("lookupListItemValue"),
+  lookupListItemText: document.getElementById("lookupListItemText"),
+  lookupListItemSequence: document.getElementById("lookupListItemSequence"),
+  lookupListItemActive: document.getElementById("lookupListItemActive"),
+  lookupListItemStatus: document.getElementById("lookupListItemStatus"),
 
   modalOverlay:   document.getElementById("modalOverlay"),
   modalTitle:     document.getElementById("modalTitle"),
@@ -217,7 +260,7 @@ function updateAuthUI() {
   const loggedIn = !!state.currentUser;
   const isAdmin = loggedIn && state.currentUser.role === "Admin";
   els.addSongBtn.style.display  = isAdmin ? "inline-flex" : "none";
-  els.userAdminBtn.style.display = isAdmin ? "inline-flex" : "none";
+  els.adminBtn.style.display = isAdmin ? "inline-flex" : "none";
   els.userSettingsBtn.style.display = loggedIn ? "inline-flex" : "none";
   els.authIconBtn.title = loggedIn ? "Log out" : "Log in";
   els.authIconBtn.setAttribute("aria-label", loggedIn ? "Log out" : "Log in");
@@ -404,14 +447,80 @@ async function handleEmailVerificationFromUrl() {
   }
 }
 
+const applicationViews = () => [
+  els.catalogView,
+  els.adminView,
+  els.userAdminView,
+  els.listAdminView,
+  els.listItemsView,
+];
+
+function showApplicationView(view) {
+  applicationViews().forEach(item => { item.style.display = item === view ? "block" : "none"; });
+}
+
+function openAdministration() {
+  if (state.currentUser?.role !== "Admin") return;
+  showApplicationView(els.adminView);
+}
+
+async function getCachedLookupList(listName, forceRefresh = false) {
+  const cacheKey = listName.trim().toLowerCase();
+  if (!forceRefresh && state.lookupListCache.has(cacheKey)) return state.lookupListCache.get(cacheKey);
+  const lookupList = await api.getLookupList(listName);
+  state.lookupListCache.set(cacheKey, lookupList);
+  return lookupList;
+}
+
+/**
+ * populateLookupSelect — Generic reusable dropdown loader.
+ * The backend supplies both the visible text and the requested ordering.
+ */
+async function populateLookupSelect(selectElement, listName, options = {}) {
+  const { selectedValue = "", placeholder = "", forceRefresh = false, useDefault = true } = options;
+  selectElement.disabled = true;
+  selectElement.innerHTML = placeholder
+    ? `<option value="">${escapeHtml(placeholder)}</option>`
+    : "";
+  try {
+    const lookupList = await getCachedLookupList(listName, forceRefresh);
+    lookupList.items.forEach(item => {
+      const option = document.createElement("option");
+      option.value = item.list_item_value;
+      option.textContent = item.list_item_text;
+      selectElement.appendChild(option);
+    });
+    const effectiveValue = selectedValue || (useDefault ? lookupList.default_item_value || "" : "");
+    if (effectiveValue && !lookupList.items.some(item => item.list_item_value === effectiveValue)) {
+      const retained = document.createElement("option");
+      retained.value = effectiveValue;
+      retained.textContent = `${effectiveValue} (inactive)`;
+      selectElement.appendChild(retained);
+    }
+    selectElement.value = effectiveValue;
+    selectElement.disabled = false;
+    return lookupList;
+  } catch (error) {
+    selectElement.innerHTML = "";
+    if (selectedValue) {
+      const fallback = document.createElement("option");
+      fallback.value = selectedValue;
+      fallback.textContent = selectedValue;
+      selectElement.appendChild(fallback);
+      selectElement.value = selectedValue;
+    }
+    selectElement.disabled = false;
+    throw error;
+  }
+}
+
 async function openUserAdministration() {
   if (!state.currentUser || state.currentUser.role !== "Admin") return;
-  els.userAdminBtn.disabled = true;
+  els.manageUsersBtn.disabled = true;
   try {
     state.users = await api.getUsers();
     renderUsers();
-    els.catalogView.style.display = "none";
-    els.userAdminView.style.display = "block";
+    showApplicationView(els.userAdminView);
   } catch (error) {
     console.error("Failed to load users:", error);
     if (error.status === 401) {
@@ -422,7 +531,7 @@ async function openUserAdministration() {
       alert(error.detail || "Could not load User Administration. Please try again.");
     }
   } finally {
-    els.userAdminBtn.disabled = false;
+    els.manageUsersBtn.disabled = false;
   }
 }
 
@@ -438,7 +547,7 @@ function renderUsers() {
   });
 }
 
-function openUserModal(userId) {
+async function openUserModal(userId) {
   const user = state.users.find(item => String(item.id) === String(userId));
   if (!user) return;
   state.selectedUser = user;
@@ -446,7 +555,8 @@ function openUserModal(userId) {
   els.userFieldId.value = user.id;
   els.userFieldName.value = user.name;
   els.userFieldEmail.value = user.email;
-  els.userFieldRole.value = user.role || "Basic";
+  els.userFieldRole.innerHTML = '<option value="">Loading roles…</option>';
+  els.userFieldRole.disabled = true;
   els.userDisplayName.textContent = user.name;
   els.userEmailDisplay.textContent = user.email;
   els.userInitials.textContent = user.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
@@ -454,6 +564,13 @@ function openUserModal(userId) {
   const isCurrentUser = String(user.id) === String(state.currentUser.id);
   els.userModalDeleteBtn.style.display = isCurrentUser ? "none" : "inline-flex";
   els.userModalOverlay.style.display = "flex";
+  try {
+    await populateLookupSelect(els.userFieldRole, "Role", { selectedValue: user.role || "Basic" });
+  } catch (error) {
+    console.error("Could not load Role lookup list:", error);
+    els.passwordResetStatus.textContent = error.detail || "Could not load the Role list.";
+    els.passwordResetStatus.classList.add("is-error");
+  }
   setTimeout(() => els.userFieldName.focus(), 50);
 }
 
@@ -484,8 +601,7 @@ async function saveUser() {
     renderUsers();
     closeUserModal();
     if (state.currentUser.role !== "Admin") {
-      els.userAdminView.style.display = "none";
-      els.catalogView.style.display = "block";
+      showApplicationView(els.catalogView);
     }
   } catch (error) {
     console.error("User update failed:", error);
@@ -618,6 +734,224 @@ async function saveUserSettings() {
   } finally {
     els.settingsSaveBtn.disabled = false;
     els.settingsSaveBtn.textContent = defaultButtonText;
+  }
+}
+
+// ─── Lookup List Administration ─────────────────────────────────────────────
+
+async function openListAdministration() {
+  if (state.currentUser?.role !== "Admin") return;
+  els.manageListsBtn.disabled = true;
+  try {
+    state.lookupLists = await api.getLookupLists();
+    renderLookupLists();
+    showApplicationView(els.listAdminView);
+  } catch (error) {
+    console.error("Failed to load lookup lists:", error);
+    alert(error.detail || "Could not load Lists. Please try again.");
+  } finally {
+    els.manageListsBtn.disabled = false;
+  }
+}
+
+function renderLookupLists() {
+  els.lookupListTableBody.innerHTML = "";
+  els.lookupListEmptyState.style.display = state.lookupLists.length ? "none" : "block";
+  state.lookupLists.forEach(lookupList => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><strong>${escapeHtml(lookupList.list_name)}</strong></td>
+      <td>${escapeHtml(lookupList.sort_mode)}</td>
+      <td>${escapeHtml(lookupList.default_item_value || "—")}</td>
+      <td>${lookupList.active ? "Yes" : "No"}</td>
+      <td class="table-actions">
+        <button type="button" class="btn btn-secondary btn-compact" data-action="values">Values</button>
+        <button type="button" class="btn btn-secondary btn-compact" data-action="edit">Edit</button>
+      </td>`;
+    row.querySelector('[data-action="values"]').addEventListener("click", () => openLookupListItems(lookupList.id));
+    row.querySelector('[data-action="edit"]').addEventListener("click", () => openLookupListModal(lookupList));
+    els.lookupListTableBody.appendChild(row);
+  });
+}
+
+async function openLookupListModal(lookupList) {
+  if (!lookupList) return;
+  state.selectedLookupList = lookupList;
+  els.lookupListModalTitle.textContent = `[${lookupList.id}] List Information`;
+  els.lookupListId.value = lookupList.id;
+  els.lookupListName.value = lookupList.list_name;
+  els.lookupListDescription.value = lookupList.description || "";
+  els.lookupListSortMode.value = lookupList.sort_mode;
+  els.lookupListDefaultValue.innerHTML = '<option value="">No default</option>';
+  els.lookupListDefaultValue.disabled = true;
+  els.lookupListDefaultHelp.textContent = "Loading list values…";
+  els.lookupListStatus.textContent = "";
+  els.lookupListStatus.classList.remove("is-error");
+  els.lookupListModalOverlay.style.display = "flex";
+  try {
+    const items = await api.getLookupListItems(lookupList.id);
+    items.filter(item => item.active).forEach(item => {
+      const option = document.createElement("option");
+      option.value = item.list_item_value;
+      option.textContent = item.list_item_text;
+      els.lookupListDefaultValue.appendChild(option);
+    });
+    els.lookupListDefaultValue.value = lookupList.default_item_value || "";
+    els.lookupListDefaultValue.disabled = false;
+    els.lookupListDefaultHelp.textContent = "Used when a form has no existing selection.";
+  } catch (error) {
+    els.lookupListDefaultHelp.textContent = "Could not load values for this list.";
+    showLookupListError(error.detail || "Could not load the default values.");
+  }
+  setTimeout(() => els.lookupListName.focus(), 50);
+}
+
+function closeLookupListModal() {
+  state.selectedLookupList = null;
+  els.lookupListModalOverlay.style.display = "none";
+}
+
+function invalidateLookupCache(...listNames) {
+  listNames.filter(Boolean).forEach(name => state.lookupListCache.delete(name.trim().toLowerCase()));
+}
+
+async function saveLookupList() {
+  const listName = els.lookupListName.value.trim();
+  if (!listName) return showLookupListError("List name is required.");
+  const payload = {
+    list_name: listName,
+    description: els.lookupListDescription.value.trim() || null,
+    sort_mode: els.lookupListSortMode.value,
+    default_item_value: els.lookupListDefaultValue.value || null,
+    active: state.selectedLookupList.active,
+  };
+  const previousName = state.selectedLookupList?.list_name;
+  els.lookupListSaveBtn.disabled = true;
+  try {
+    await api.updateLookupList(state.selectedLookupList.id, payload);
+    invalidateLookupCache(previousName, listName);
+    state.lookupLists = await api.getLookupLists();
+    renderLookupLists();
+    closeLookupListModal();
+  } catch (error) {
+    showLookupListError(error.detail || "Could not save the list.");
+  } finally {
+    els.lookupListSaveBtn.disabled = false;
+  }
+}
+
+function showLookupListError(message) {
+  els.lookupListStatus.textContent = message;
+  els.lookupListStatus.classList.add("is-error");
+}
+
+async function openLookupListItems(listId) {
+  const lookupList = state.lookupLists.find(item => String(item.id) === String(listId));
+  if (!lookupList) return;
+  state.selectedLookupList = lookupList;
+  try {
+    state.lookupListItems = await api.getLookupListItems(listId);
+    els.listItemsTitle.textContent = `[${lookupList.id}] ${lookupList.list_name} Values`;
+    els.listItemsSubtitle.textContent = lookupList.sort_mode === "Sequence"
+      ? "Values are displayed by sequence number."
+      : "Values are displayed alphabetically by text.";
+    renderLookupListItems();
+    showApplicationView(els.listItemsView);
+  } catch (error) {
+    alert(error.detail || "Could not load list values.");
+  }
+}
+
+function renderLookupListItems() {
+  els.lookupListItemTableBody.innerHTML = "";
+  els.lookupListItemEmptyState.style.display = state.lookupListItems.length ? "none" : "block";
+  state.lookupListItems.forEach(item => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><strong>${escapeHtml(item.list_item_value)}</strong></td>
+      <td>${escapeHtml(item.list_item_text)}</td>
+      <td>${item.sequence ?? ""}</td>
+      <td>${item.active ? "Yes" : "No"}</td>
+      <td class="table-actions"><button type="button" class="btn btn-secondary btn-compact">Edit</button></td>`;
+    row.querySelector("button").addEventListener("click", () => openLookupListItemModal(item));
+    els.lookupListItemTableBody.appendChild(row);
+  });
+}
+
+function openLookupListItemModal(item = null) {
+  if (!state.selectedLookupList) return;
+  state.selectedLookupListItem = item;
+  const creating = !item;
+  els.lookupListItemModalTitle.textContent = creating
+    ? `New ${state.selectedLookupList.list_name} Value`
+    : `${state.selectedLookupList.list_name}: ${item.list_item_value}`;
+  els.lookupListItemValue.value = item?.list_item_value || "";
+  els.lookupListItemValue.readOnly = !creating;
+  els.lookupListItemText.value = item?.list_item_text || "";
+  els.lookupListItemSequence.value = item?.sequence ?? "";
+  els.lookupListItemSequence.required = state.selectedLookupList.sort_mode === "Sequence";
+  els.lookupListItemActive.checked = item?.active ?? true;
+  els.deactivateListItemBtn.style.display = creating || !item.active ? "none" : "inline-flex";
+  els.lookupListItemStatus.textContent = "";
+  els.lookupListItemStatus.classList.remove("is-error");
+  els.lookupListItemModalOverlay.style.display = "flex";
+  setTimeout(() => (creating ? els.lookupListItemValue : els.lookupListItemText).focus(), 50);
+}
+
+function closeLookupListItemModal() {
+  state.selectedLookupListItem = null;
+  els.lookupListItemModalOverlay.style.display = "none";
+}
+
+function showLookupListItemError(message) {
+  els.lookupListItemStatus.textContent = message;
+  els.lookupListItemStatus.classList.add("is-error");
+}
+
+async function saveLookupListItem() {
+  const lookupList = state.selectedLookupList;
+  if (!lookupList) return;
+  const itemValue = els.lookupListItemValue.value.trim();
+  const itemText = els.lookupListItemText.value.trim();
+  const sequence = els.lookupListItemSequence.value === "" ? null : Number(els.lookupListItemSequence.value);
+  if (!itemValue || !itemText) return showLookupListItemError("Value and text are required.");
+  if (lookupList.sort_mode === "Sequence" && (!Number.isInteger(sequence) || sequence < 0)) {
+    return showLookupListItemError("A sequence number of zero or greater is required for this list.");
+  }
+  const payload = { list_item_text: itemText, sequence, active: els.lookupListItemActive.checked };
+  els.lookupListItemSaveBtn.disabled = true;
+  try {
+    if (state.selectedLookupListItem) {
+      await api.updateLookupListItem(lookupList.id, state.selectedLookupListItem.list_item_value, payload);
+    } else {
+      await api.createLookupListItem(lookupList.id, { list_item_value: itemValue, ...payload });
+    }
+    invalidateLookupCache(lookupList.list_name);
+    state.lookupListItems = await api.getLookupListItems(lookupList.id);
+    renderLookupListItems();
+    closeLookupListItemModal();
+  } catch (error) {
+    showLookupListItemError(error.detail || "Could not save the list value.");
+  } finally {
+    els.lookupListItemSaveBtn.disabled = false;
+  }
+}
+
+async function deactivateSelectedLookupListItem() {
+  const lookupList = state.selectedLookupList;
+  const item = state.selectedLookupListItem;
+  if (!lookupList || !item || !confirm(`Deactivate the ${item.list_item_text} value?`)) return;
+  els.deactivateListItemBtn.disabled = true;
+  try {
+    await api.deactivateLookupListItem(lookupList.id, item.list_item_value);
+    invalidateLookupCache(lookupList.list_name);
+    state.lookupListItems = await api.getLookupListItems(lookupList.id);
+    renderLookupListItems();
+    closeLookupListItemModal();
+  } catch (error) {
+    showLookupListItemError(error.detail || "Could not deactivate the list value.");
+  } finally {
+    els.deactivateListItemBtn.disabled = false;
   }
 }
 
@@ -1234,18 +1568,20 @@ function wireEvents() {
   // + New Song button.
   els.addSongBtn.addEventListener("click", openCreateModal);
 
-  els.userAdminBtn.addEventListener("click", openUserAdministration);
-  els.backToCatalogBtn.addEventListener("click", () => {
-    els.userAdminView.style.display = "none";
-    els.catalogView.style.display = "block";
-  });
+  els.adminBtn.addEventListener("click", openAdministration);
+  els.backToCatalogBtn.addEventListener("click", () => showApplicationView(els.catalogView));
+  els.manageUsersBtn.addEventListener("click", openUserAdministration);
+  els.manageListsBtn.addEventListener("click", openListAdministration);
+  els.usersBackToAdminBtn.addEventListener("click", openAdministration);
+  els.listsBackToAdminBtn.addEventListener("click", openAdministration);
+  els.itemsBackToListsBtn.addEventListener("click", openListAdministration);
+  els.newListItemBtn.addEventListener("click", () => openLookupListItemModal());
   els.userSettingsBtn.addEventListener("click", () => openUserSettings());
   els.authIconBtn.addEventListener("click", async () => {
     if (state.currentUser) {
       await api.logout();
       state.currentUser = null;
-      els.userAdminView.style.display = "none";
-      els.catalogView.style.display = "block";
+      showApplicationView(els.catalogView);
       closeUserModal();
       closeUserSettings();
       state.songs = [];
@@ -1271,6 +1607,19 @@ function wireEvents() {
   els.settingsModalCancelBtn.addEventListener("click", closeUserSettings);
   els.settingsSaveBtn.addEventListener("click", saveUserSettings);
   els.settingsModalOverlay.addEventListener("click", event => { if (event.target === els.settingsModalOverlay) closeUserSettings(); });
+  els.lookupListModalCloseX.addEventListener("click", closeLookupListModal);
+  els.lookupListCancelBtn.addEventListener("click", closeLookupListModal);
+  els.lookupListSaveBtn.addEventListener("click", saveLookupList);
+  els.lookupListModalOverlay.addEventListener("click", event => {
+    if (event.target === els.lookupListModalOverlay) closeLookupListModal();
+  });
+  els.lookupListItemModalCloseX.addEventListener("click", closeLookupListItemModal);
+  els.lookupListItemCancelBtn.addEventListener("click", closeLookupListItemModal);
+  els.lookupListItemSaveBtn.addEventListener("click", saveLookupListItem);
+  els.deactivateListItemBtn.addEventListener("click", deactivateSelectedLookupListItem);
+  els.lookupListItemModalOverlay.addEventListener("click", event => {
+    if (event.target === els.lookupListItemModalOverlay) closeLookupListItemModal();
+  });
 
   // Modal — Save button.
   els.modalSaveBtn.addEventListener("click", handleSaveSong);
@@ -1292,7 +1641,9 @@ function wireEvents() {
 
   // Close modal with Escape key.
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && els.settingsModalOverlay.style.display !== "none") closeUserSettings();
+    if (e.key === "Escape" && els.lookupListItemModalOverlay.style.display !== "none") closeLookupListItemModal();
+    else if (e.key === "Escape" && els.lookupListModalOverlay.style.display !== "none") closeLookupListModal();
+    else if (e.key === "Escape" && els.settingsModalOverlay.style.display !== "none") closeUserSettings();
     else if (e.key === "Escape" && els.userModalOverlay.style.display !== "none") closeUserModal();
     else if (e.key === "Escape" && state.modalMode !== null) closeModal();
   });

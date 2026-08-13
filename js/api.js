@@ -87,6 +87,18 @@ let _mockUsers = [
   { id: "4", name: "Taylor Reed", email: "taylor.reed@example.com", role: "Admin", status: "Active", lastLogin: "Jul 28, 2026" },
 ];
 
+let _mockLookupLists = [
+  { id: "1", list_name: "Role", description: "Application user roles", sort_mode: "Alphabetical", default_item_value: "Basic", active: true },
+];
+
+let _mockLookupListItems = [
+  { list_id: "1", list_item_value: "Admin", list_item_text: "Admin", sequence: 0, active: true },
+  { list_id: "1", list_item_value: "Basic", list_item_text: "Basic", sequence: 0, active: true },
+  { list_id: "1", list_item_value: "Pending", list_item_text: "Pending", sequence: 0, active: true },
+];
+
+let _nextLookupListId = 2;
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Simulate a network delay so async patterns are realistic. */
@@ -314,6 +326,95 @@ async function resetUserPassword(id, newPassword) {
   return { success: true, message: "Password updated." };
 }
 
+// ─── Reusable Lookup Lists ──────────────────────────────────────────────────
+
+async function getLookupList(listName) {
+  if (!USE_MOCK_API) return apiRequest(`/lookup-lists/${encodeURIComponent(listName)}`);
+  await _delay();
+  const lookupList = _mockLookupLists.find(item => item.active && item.list_name.toLowerCase() === listName.toLowerCase());
+  if (!lookupList) throw new Error(`Lookup list ${listName} not found`);
+  const items = _mockLookupListItems
+    .filter(item => String(item.list_id) === String(lookupList.id) && item.active)
+    .sort((left, right) => lookupList.sort_mode === "Sequence"
+      ? (left.sequence ?? Number.MAX_SAFE_INTEGER) - (right.sequence ?? Number.MAX_SAFE_INTEGER)
+      : left.list_item_text.localeCompare(right.list_item_text));
+  return { ...lookupList, items: items.map(item => ({ ...item })) };
+}
+
+async function getLookupLists() {
+  if (!USE_MOCK_API) return apiRequest("/admin/lookup-lists");
+  await _delay();
+  return _mockLookupLists.map(item => ({ ...item }));
+}
+
+async function createLookupList(payload) {
+  if (!USE_MOCK_API) return apiRequest("/admin/lookup-lists", { method: "POST", body: payload });
+  await _delay();
+  const item = { ...payload, id: String(_nextLookupListId++) };
+  _mockLookupLists.push(item);
+  return { ...item };
+}
+
+async function updateLookupList(id, payload) {
+  if (!USE_MOCK_API) return apiRequest(`/admin/lookup-lists/${id}`, { method: "PUT", body: payload });
+  await _delay();
+  const index = _mockLookupLists.findIndex(item => String(item.id) === String(id));
+  if (index === -1) throw new Error(`Lookup list ${id} not found`);
+  _mockLookupLists[index] = { ..._mockLookupLists[index], ...payload };
+  return { ..._mockLookupLists[index] };
+}
+
+async function deactivateLookupList(id) {
+  if (!USE_MOCK_API) return apiRequest(`/admin/lookup-lists/${id}`, { method: "DELETE" });
+  const lookupList = _mockLookupLists.find(item => String(item.id) === String(id));
+  return updateLookupList(id, { ...lookupList, active: false });
+}
+
+async function getLookupListItems(listId) {
+  if (!USE_MOCK_API) return apiRequest(`/admin/lookup-lists/${listId}/items`);
+  await _delay();
+  return _mockLookupListItems.filter(item => String(item.list_id) === String(listId)).map(item => ({ ...item }));
+}
+
+async function createLookupListItem(listId, payload) {
+  if (!USE_MOCK_API) return apiRequest(`/admin/lookup-lists/${listId}/items`, { method: "POST", body: payload });
+  await _delay();
+  const item = { ...payload, list_id: String(listId) };
+  _mockLookupListItems.push(item);
+  return { ...item };
+}
+
+async function updateLookupListItem(listId, itemValue, payload) {
+  if (!USE_MOCK_API) {
+    return apiRequest(`/admin/lookup-lists/${listId}/items/${encodeURIComponent(itemValue)}`, {
+      method: "PUT",
+      body: payload,
+    });
+  }
+  await _delay();
+  const index = _mockLookupListItems.findIndex(item =>
+    String(item.list_id) === String(listId) && item.list_item_value === itemValue);
+  if (index === -1) throw new Error(`Lookup list item ${itemValue} not found`);
+  _mockLookupListItems[index] = { ..._mockLookupListItems[index], ...payload };
+  return { ..._mockLookupListItems[index] };
+}
+
+async function deactivateLookupListItem(listId, itemValue) {
+  if (!USE_MOCK_API) {
+    return apiRequest(`/admin/lookup-lists/${listId}/items/${encodeURIComponent(itemValue)}`, { method: "DELETE" });
+  }
+  const item = _mockLookupListItems.find(candidate =>
+    String(candidate.list_id) === String(listId) && candidate.list_item_value === itemValue);
+  const lookupList = _mockLookupLists.find(candidate => String(candidate.id) === String(listId));
+  if (lookupList?.default_item_value === itemValue) {
+    const error = new Error("Choose or clear a different default value before deactivating this value");
+    error.detail = error.message;
+    error.status = 409;
+    throw error;
+  }
+  return updateLookupListItem(listId, itemValue, { ...item, active: false });
+}
+
 // ─── Song CRUD Functions ──────────────────────────────────────────────────────
 
 /**
@@ -425,6 +526,15 @@ window.RockSongsApi = {
   updateCurrentUser,
   deleteUser,
   resetUserPassword,
+  getLookupList,
+  getLookupLists,
+  createLookupList,
+  updateLookupList,
+  deactivateLookupList,
+  getLookupListItems,
+  createLookupListItem,
+  updateLookupListItem,
+  deactivateLookupListItem,
   getSongs,
   createSong,
   updateSong,
