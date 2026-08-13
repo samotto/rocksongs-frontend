@@ -129,6 +129,11 @@ const els = {
   fieldSong:      document.getElementById("fieldSong"),
   fieldAlbum:     document.getElementById("fieldAlbum"),
   fieldOverplayed: document.getElementById("fieldOverplayed"),
+  songAuditDetails: document.getElementById("songAuditDetails"),
+  fieldCreateUser: document.getElementById("fieldCreateUser"),
+  fieldCreateTime: document.getElementById("fieldCreateTime"),
+  fieldUpdateUser: document.getElementById("fieldUpdateUser"),
+  fieldUpdateTime: document.getElementById("fieldUpdateTime"),
   modalSaveBtn:   document.getElementById("modalSaveBtn"),
   modalDeleteBtn: document.getElementById("modalDeleteBtn"),
   modalCloseBtn:  document.getElementById("modalCloseBtn"),
@@ -949,6 +954,7 @@ function openViewOrEditModal(songId) {
   els.fieldSong.value            = song.song    || "";
   els.fieldAlbum.value           = song.album   || "";
   els.fieldOverplayed.checked    = song.overplayed === "Y";
+  populateSongAuditDetails(song);
 
   setModalFieldsReadOnly(false);
 
@@ -957,6 +963,56 @@ function openViewOrEditModal(songId) {
   els.modalSaveBtn.textContent     = "Update";
 
   showModal();
+  void enrichSongAuditUsers(song.id);
+}
+
+/**
+ * populateSongAuditDetails — Shows immutable record metadata for an existing song.
+ * User ids remain visible even when the user list has not loaded yet.
+ */
+function populateSongAuditDetails(song) {
+  if (!song) {
+    els.songAuditDetails.style.display = "none";
+    return;
+  }
+
+  els.fieldCreateUser.textContent = formatAuditUser(song.create_id ?? song.created_id);
+  els.fieldCreateTime.textContent = formatAuditTime(song.create_time ?? song.created_time);
+  els.fieldUpdateUser.textContent = formatAuditUser(song.update_id ?? song.updated_id);
+  els.fieldUpdateTime.textContent = formatAuditTime(song.update_time ?? song.updated_time);
+  els.songAuditDetails.style.display = "block";
+}
+
+function formatAuditUser(userId) {
+  if (userId === null || userId === undefined || userId === "" || Number(userId) === 0) {
+    return "Not recorded";
+  }
+
+  const user = state.users.find(item => String(item.id) === String(userId));
+  if (!user) return `User ID ${userId}`;
+  return `[${user.id}] ${user.name || user.email}`;
+}
+
+function formatAuditTime(value) {
+  if (!value) return "Not recorded";
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? String(value) : timestamp.toLocaleString();
+}
+
+async function enrichSongAuditUsers(songId) {
+  if (state.users.length === 0) {
+    try {
+      state.users = await api.getUsers();
+    } catch (error) {
+      // The numeric user ids already displayed are still valid audit details.
+      console.warn("Could not load user names for song audit details:", error);
+      return;
+    }
+  }
+
+  if (state.modalMode === "edit" && String(state.modalSong?.id) === String(songId)) {
+    populateSongAuditDetails(state.modalSong);
+  }
 }
 
 // openEditModal is an alias used if called directly with a song id.
@@ -983,6 +1039,11 @@ function showModal() {
 function clearModalForm() {
   els.songForm.reset();
   els.fieldId.value = "";
+  els.songAuditDetails.style.display = "none";
+  els.fieldCreateUser.textContent = "";
+  els.fieldCreateTime.textContent = "";
+  els.fieldUpdateUser.textContent = "";
+  els.fieldUpdateTime.textContent = "";
 }
 
 function setModalFieldsReadOnly(readOnly) {
